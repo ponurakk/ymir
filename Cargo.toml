@@ -1,0 +1,17 @@
+[package]
+name = "ymir"
+version = "0.1.0"
+edition = "2021"
+authors = ["ponurakk <p0unrakg@int.pl>"]
+description = "Projects cleaner"
+license = "Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/ponurakk/ymir"
+homepage = "https://github.com/ponurakk/ymir"
+
+[dependencies]
+anyhow = "1.0.95"
+dirs = "6.0.0"
+ratatui = "0.29.0"
+tokei = "12.1.2"
+walkdir = "2.5.0"
