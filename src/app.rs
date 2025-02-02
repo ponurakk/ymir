@@ -7,8 +7,8 @@ use ratatui::{
     symbols,
     text::Line,
     widgets::{
-        Block, Borders, HighlightSpacing, List, ListItem, ListState, Padding, Paragraph,
-        StatefulWidget, Widget, Wrap,
+        Block, Borders, Cell, HighlightSpacing, List, ListItem, ListState, Padding, Paragraph, Row,
+        StatefulWidget, Table, Widget, Wrap,
     },
     DefaultTerminal,
 };
@@ -19,6 +19,8 @@ use crate::projects::Project;
 
 pub struct App {
     should_exit: bool,
+    show_project_info: bool,
+    show_languages: bool,
     projects_list: ProjectsList,
 }
 
@@ -30,6 +32,8 @@ impl App {
     pub fn new(projects_list: Vec<Project>) -> Self {
         Self {
             should_exit: false,
+            show_project_info: true,
+            show_languages: true,
             projects_list: ProjectsList::from_iter(projects_list),
         }
     }
@@ -58,6 +62,8 @@ impl App {
             KeyCode::Char('u') => self.select_previous_5(),
             KeyCode::Char('g') | KeyCode::Home => self.select_first(),
             KeyCode::Char('G') | KeyCode::End => self.select_last(),
+            KeyCode::Char('1') => self.show_project_info = !self.show_project_info,
+            KeyCode::Char('2') => self.show_languages = !self.show_languages,
             _ => {}
         }
     }
@@ -107,17 +113,33 @@ impl Widget for &mut App {
         ])
         .areas(area);
 
-        let [list_area, data_area] =
-            Layout::horizontal([Constraint::Fill(1), Constraint::Fill(1)]).areas(main_area);
+        let [list_area, data_area] = if self.show_project_info || self.show_languages {
+            Layout::horizontal([Constraint::Fill(1), Constraint::Fill(1)]).areas(main_area)
+        } else {
+            Layout::horizontal([Constraint::Fill(1), Constraint::Fill(0)]).areas(main_area)
+        };
 
-        let [info_area, tree_area] =
-            Layout::vertical([Constraint::Fill(1), Constraint::Fill(1)]).areas(data_area);
+        let [info_area, langs_area] = if self.show_project_info && self.show_languages {
+            Layout::vertical([Constraint::Fill(1), Constraint::Fill(1)]).areas(data_area)
+        } else if !self.show_project_info && self.show_languages {
+            Layout::vertical([Constraint::Fill(0), Constraint::Fill(1)]).areas(data_area)
+        } else if self.show_project_info && !self.show_languages {
+            Layout::vertical([Constraint::Fill(1), Constraint::Fill(0)]).areas(data_area)
+        } else {
+            Layout::vertical([Constraint::Fill(0), Constraint::Fill(0)]).areas(data_area)
+        };
 
         App::render_header(header_area, buf);
         App::render_footer(footer_area, buf);
         self.render_list(list_area, buf);
-        self.render_selected_item(info_area, buf);
-        self.render_selected_item_langs(tree_area, buf);
+
+        if self.show_project_info {
+            self.render_project_info(info_area, buf);
+        }
+
+        if self.show_languages {
+            self.render_project_langs(langs_area, buf);
+        }
     }
 }
 
@@ -156,14 +178,14 @@ impl App {
         StatefulWidget::render(list, area, buf, &mut self.projects_list.state);
     }
 
-    fn render_selected_item(&self, area: Rect, buf: &mut Buffer) {
+    fn render_project_info(&self, area: Rect, buf: &mut Buffer) {
         let info = self.projects_list.state.selected().map_or_else(
             || "Nothing selected...".to_string(),
             |i| self.projects_list.items[i].to_string(),
         );
 
         let block = Block::new()
-            .title(Line::raw("Project Info").left_aligned())
+            .title(Line::raw("[1] Project Info").left_aligned())
             .borders(Borders::ALL)
             .border_set(symbols::border::ROUNDED)
             .padding(Padding::horizontal(1));
@@ -175,18 +197,83 @@ impl App {
             .render(area, buf);
     }
 
-    fn render_selected_item_langs(&self, area: Rect, buf: &mut Buffer) {
+    fn render_project_langs(&self, area: Rect, buf: &mut Buffer) {
+        let mut total_files = 0;
+        let mut total_lines = 0;
+        let mut total_code = 0;
+        let mut total_comments = 0;
+        let mut total_blanks = 0;
+
+        let rows: Vec<Row> = self
+            .projects_list
+            .state
+            .selected()
+            .map_or_else(Vec::new, |i| {
+                self.projects_list.items[i]
+                    .languages
+                    .iter()
+                    .map(|(ltype, l)| {
+                        total_files += l.reports.len();
+                        total_lines += l.lines();
+                        total_code += l.code;
+                        total_comments += l.comments;
+                        total_blanks += l.blanks;
+
+                        Row::new(vec![
+                            ltype.to_string(),
+                            l.reports.len().to_string(),
+                            l.lines().to_string(),
+                            l.code.to_string(),
+                            l.comments.to_string(),
+                            l.blanks.to_string(),
+                        ])
+                    })
+                    .collect::<Vec<Row>>()
+            });
+
+        let header = ["Language", "Files", "Lines", "Code", "Comments", "Blanks"]
+            .into_iter()
+            .map(Cell::from)
+            .collect::<Row>()
+            .height(1);
+
+        let footer = [
+            "Total".to_string(),
+            total_files.to_string(),
+            total_lines.to_string(),
+            total_code.to_string(),
+            total_comments.to_string(),
+            total_blanks.to_string(),
+        ]
+        .into_iter()
+        .map(Cell::from)
+        .collect::<Row>()
+        .height(1);
+
         let block = Block::new()
-            .title(Line::raw("Languages").left_aligned())
+            .title(Line::raw("[2] Languages").left_aligned())
             .borders(Borders::ALL)
             .border_set(symbols::border::ROUNDED)
             .padding(Padding::horizontal(1));
 
-        Paragraph::new("TODO")
-            .block(block)
-            .fg(TEXT_FG_COLOR)
-            .wrap(Wrap { trim: false })
-            .render(area, buf);
+        Widget::render(
+            Table::new(
+                rows,
+                [
+                    Constraint::Percentage(25),
+                    Constraint::Percentage(15),
+                    Constraint::Percentage(15),
+                    Constraint::Percentage(15),
+                    Constraint::Percentage(15),
+                    Constraint::Percentage(15),
+                ],
+            )
+            .header(header)
+            .footer(footer)
+            .block(block),
+            area,
+            buf,
+        );
     }
 }
 

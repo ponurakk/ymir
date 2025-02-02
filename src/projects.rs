@@ -2,6 +2,7 @@
 
 use std::{ffi::OsStr, fmt::Display, path::PathBuf};
 
+use tokei::{Config, Languages};
 use walkdir::{DirEntry, WalkDir};
 
 use crate::utils::{format_bytes, get_git_info, get_size, GitInfo};
@@ -11,6 +12,7 @@ pub struct Project {
     pub path: PathBuf,
     pub size: u64,
     pub git_info: GitInfo,
+    pub languages: Languages,
 }
 
 impl Display for Project {
@@ -35,13 +37,14 @@ impl Display for Project {
 }
 
 impl Project {
-    pub fn new(path: PathBuf, size: u64) -> Self {
+    pub fn new(path: PathBuf, size: u64, languages: Languages) -> Self {
         let git_info = get_git_info(&path).unwrap_or_default();
 
         Self {
             path,
             size,
             git_info,
+            languages,
         }
     }
 }
@@ -73,9 +76,12 @@ pub fn find(path: PathBuf, ignore_dirs: &[String]) -> Vec<Project> {
             continue;
         };
 
+        let mut languages = Languages::new();
+        languages.get_statistics(&[parent], &[], &Config::default());
+
         let size = get_size(parent).unwrap_or(0);
-        paths.push(Project::new(parent.to_path_buf(), size));
-        eprintln!("{:#?}", paths.len());
+        paths.push(Project::new(parent.to_path_buf(), size, languages));
+        eprintln!("{} - {}", paths.len(), parent.display());
     }
 
     paths
