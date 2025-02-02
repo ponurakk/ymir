@@ -213,16 +213,16 @@ impl App {
                     .languages
                     .iter()
                     .map(|(ltype, l)| {
-                        total_files += l.reports.len();
-                        total_lines += l.lines();
+                        total_files += l.files;
+                        total_lines += l.lines;
                         total_code += l.code;
                         total_comments += l.comments;
                         total_blanks += l.blanks;
 
                         Row::new(vec![
                             ltype.to_string(),
-                            l.reports.len().to_string(),
-                            l.lines().to_string(),
+                            l.files.to_string(),
+                            l.lines.to_string(),
                             l.code.to_string(),
                             l.comments.to_string(),
                             l.blanks.to_string(),

@@ -1,18 +1,29 @@
 //! Functions for finding projects
 
-use std::{ffi::OsStr, fmt::Display, path::PathBuf};
+use std::{collections::HashMap, ffi::OsStr, fmt::Display, path::PathBuf};
 
+use serde::{Deserialize, Serialize};
 use tokei::{Config, Languages};
 use walkdir::{DirEntry, WalkDir};
 
 use crate::utils::{format_bytes, get_git_info, get_size, GitInfo};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Project {
     pub path: PathBuf,
     pub size: u64,
     pub git_info: GitInfo,
-    pub languages: Languages,
+    pub languages: HashMap<String, ProjectLanguage>,
+    pub languages_total: ProjectLanguage,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectLanguage {
+    pub files: usize,
+    pub lines: usize,
+    pub code: usize,
+    pub comments: usize,
+    pub blanks: usize,
 }
 
 impl Display for Project {
@@ -37,7 +48,12 @@ impl Display for Project {
 }
 
 impl Project {
-    pub fn new(path: PathBuf, size: u64, languages: Languages) -> Self {
+    pub fn new(
+        path: PathBuf,
+        size: u64,
+        languages: HashMap<String, ProjectLanguage>,
+        languages_total: ProjectLanguage,
+    ) -> Self {
         let git_info = get_git_info(&path).unwrap_or_default();
 
         Self {
@@ -45,6 +61,7 @@ impl Project {
             size,
             git_info,
             languages,
+            languages_total,
         }
     }
 }
@@ -79,9 +96,74 @@ pub fn find(path: PathBuf, ignore_dirs: &[String]) -> Vec<Project> {
         let mut languages = Languages::new();
         languages.get_statistics(&[parent], &[], &Config::default());
 
+        let total = languages.total();
+        let total: ProjectLanguage = ProjectLanguage {
+            files: total.reports.len(),
+            lines: total.lines(),
+            code: total.code,
+            comments: total.comments,
+            blanks: total.blanks,
+        };
+
+        let languages: HashMap<String, ProjectLanguage> = languages
+            .into_iter()
+            .map(|(key, value)| {
+                (
+                    key.to_string(),
+                    ProjectLanguage {
+                        files: value.reports.len(),
+                        lines: value.lines(),
+                        code: value.code,
+                        comments: value.comments,
+                        blanks: value.blanks,
+                    },
+                )
+            })
+            .collect();
+
         let size = get_size(parent).unwrap_or(0);
-        paths.push(Project::new(parent.to_path_buf(), size, languages));
+        paths.push(Project::new(parent.to_path_buf(), size, languages, total));
         eprintln!("{} - {}", paths.len(), parent.display());
+    }
+
+    paths
+}
+
+pub fn find_from_cache(projects: Vec<PathBuf>) -> Vec<Project> {
+    let mut paths: Vec<Project> = Vec::new();
+
+    for path in projects {
+        let mut languages = Languages::new();
+        languages.get_statistics(&[&path], &[], &Config::default());
+
+        let total = languages.total();
+        let total: ProjectLanguage = ProjectLanguage {
+            files: total.reports.len(),
+            lines: total.lines(),
+            code: total.code,
+            comments: total.comments,
+            blanks: total.blanks,
+        };
+
+        let languages: HashMap<String, ProjectLanguage> = languages
+            .into_iter()
+            .map(|(key, value)| {
+                (
+                    key.to_string(),
+                    ProjectLanguage {
+                        files: value.reports.len(),
+                        lines: value.lines(),
+                        code: value.code,
+                        comments: value.comments,
+                        blanks: value.blanks,
+                    },
+                )
+            })
+            .collect();
+
+        let size = get_size(&path).unwrap_or(0);
+        paths.push(Project::new(path.to_path_buf(), size, languages, total));
+        eprintln!("{} - {}", paths.len(), path.display());
     }
 
     paths

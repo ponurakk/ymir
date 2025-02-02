@@ -11,23 +11,52 @@ use std::path::PathBuf;
 use anyhow::bail;
 use app::App;
 use clap::Parser;
-use config::Settings;
+use config::{Cache, Settings};
 
 /// Arguments for cli
 #[derive(Parser, Debug)]
 struct Args {
-    name: Option<PathBuf>,
+    /// Path from where to search
+    path: Option<PathBuf>,
+
+    /// Saves config in config directory
+    #[arg(long)]
+    gen_config: bool,
+
+    /// Don't create cache file
+    #[arg(long)]
+    no_cache: bool,
+
+    /// Update of cache
+    #[arg(long)]
+    fresh: bool,
 }
 
 fn main() -> anyhow::Result<()> {
-    let settings = Settings::new()?;
     let args = Args::parse();
 
-    let Some(find_dir) = args.name.or(settings.default_dir) else {
+    if args.gen_config {
+        Settings::write_config()?;
+        return Ok(());
+    }
+
+    let settings = Settings::new();
+    let Some(find_dir) = args.path.or(settings.default_dir) else {
         bail!("You must specify the directory");
     };
 
-    let projects = projects::find(find_dir, &settings.ignore_dirs);
+    let cache = Cache::read_cache();
+
+    let projects = if !cache.is_empty() {
+        cache
+        // projects::find_from_cache(cache.iter().map(|v| v.path.clone()).collect())
+    } else {
+        projects::find(find_dir, &settings.ignore_dirs)
+    };
+
+    if !args.no_cache {
+        Cache::create_cache(&projects)?;
+    }
 
     let terminal = ratatui::init();
     let app_result = App::new(projects).run(terminal);

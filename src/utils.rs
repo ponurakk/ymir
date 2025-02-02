@@ -2,6 +2,7 @@ use std::{fs::read_dir, path::Path};
 
 use chrono::DateTime;
 use git2::Repository;
+use serde::{Deserialize, Serialize};
 
 pub fn format_bytes(bytes: u64) -> String {
     let sizes = ["B", "K", "M", "G", "T", "P", "E"];
@@ -43,7 +44,7 @@ where
     Ok(size_in_bytes)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GitInfo {
     pub remote_url: String,
     pub init_date: String,
