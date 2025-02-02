@@ -1,13 +1,19 @@
+//! Config for ymir
+
+use std::path::PathBuf;
+
 use config::{Config, ConfigError, File};
 use serde::Deserialize;
 
+/// Settings for ymir
 #[derive(Debug, Deserialize)]
 pub struct Settings {
     pub ignore_dirs: Vec<String>,
-    pub default_dir: Option<String>,
+    pub default_dir: Option<PathBuf>,
 }
 
 impl Settings {
+    /// Default ignore directories
     fn ignore_dirs() -> Vec<String> {
         vec![
             // Build
@@ -34,6 +40,7 @@ impl Settings {
         .collect()
     }
 
+    /// Load config
     pub fn new() -> anyhow::Result<Self, ConfigError> {
         let Some(config_dir) = dirs::config_dir() else {
             // TODO: Add notification
