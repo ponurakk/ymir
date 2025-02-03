@@ -202,7 +202,9 @@ impl App {
         }
 
         let block = Block::new()
-            .title(Line::raw("Projects").left_aligned())
+            .title(
+                Line::raw(format!("Projects ({})", self.projects_list.items.len())).left_aligned(),
+            )
             .title(invert_title)
             .title(Line::from(sort_title).right_aligned())
             .borders(Borders::ALL)
@@ -350,6 +352,9 @@ impl ProjectsList {
                         .last_commit_date
                         .cmp(&b.git_info.last_commit_date)
                 });
+            }
+            Sorting::Loc => {
+                items.sort_by(|a, b| a.languages_total.lines.cmp(&b.languages_total.lines));
             }
         }
 

@@ -6,6 +6,7 @@ pub enum Sorting {
     Commits,
     CreationDate,
     ModificationDate,
+    Loc,
 }
 
 impl Sorting {
@@ -15,17 +16,19 @@ impl Sorting {
             Self::Size => Self::Commits,
             Self::Commits => Self::CreationDate,
             Self::CreationDate => Self::ModificationDate,
-            Self::ModificationDate => Self::Name,
+            Self::ModificationDate => Self::Loc,
+            Self::Loc => Self::Name,
         }
     }
 
     pub fn previous(&self) -> Self {
         match *self {
-            Self::Name => Self::ModificationDate,
-            Self::Size => Self::Name,
-            Self::Commits => Self::Size,
-            Self::CreationDate => Self::Commits,
+            Self::Loc => Self::ModificationDate,
             Self::ModificationDate => Self::CreationDate,
+            Self::CreationDate => Self::Commits,
+            Self::Commits => Self::Size,
+            Self::Size => Self::Name,
+            Self::Name => Self::Loc,
         }
     }
 }
@@ -38,6 +41,7 @@ impl Display for Sorting {
             Sorting::Commits => write!(f, "Commits"),
             Sorting::CreationDate => write!(f, "Creation Date"),
             Sorting::ModificationDate => write!(f, "Modification Date"),
+            Sorting::Loc => write!(f, "Lines of Code"),
         }
     }
 }
