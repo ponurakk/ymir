@@ -1,6 +1,6 @@
 use std::{fs::read_dir, path::Path};
 
-use chrono::DateTime;
+use chrono::{DateTime, Local};
 use git2::Repository;
 use serde::{Deserialize, Serialize};
 
@@ -123,7 +123,9 @@ pub fn get_git_info(repo_path: &Path) -> anyhow::Result<GitInfo> {
 fn format_time(timestamp: Option<i64>) -> String {
     timestamp.map_or("No commits".to_string(), |t| {
         DateTime::from_timestamp(t, 0).map_or("Invalid Date".to_string(), |dt| {
-            dt.format("%Y-%m-%d %H:%M:%S").to_string()
+            dt.with_timezone(&Local)
+                .format("%Y-%m-%d %H:%M:%S")
+                .to_string()
         })
     })
 }
