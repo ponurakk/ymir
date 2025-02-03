@@ -27,7 +27,7 @@ fn pre_config() -> anyhow::Result<String> {
 
     if !Path::new(&app_dir).exists() {
         if let Err(err) = fs::create_dir_all(&app_dir) {
-            eprintln!("Failed to create config directory: {}", err);
+            eprintln!("Failed to create config directory: {err}");
             bail!("Failed to create config directory")
         }
     }
@@ -92,13 +92,13 @@ impl Settings {
             bail!("Failed to find config_dir");
         };
 
-        let config_path = format!("{}/config.toml", app_dir);
+        let config_path = format!("{app_dir}/config.toml");
 
         if !Path::new(&config_path).exists() {
             if let Err(err) = fs::write(&config_path, serialized) {
-                eprintln!("Failed to write config: {}", err);
+                eprintln!("Failed to write config: {err}");
             } else {
-                eprintln!("Default config saved to {}", config_path);
+                eprintln!("Default config saved to {config_path}");
             }
         }
 
@@ -117,7 +117,7 @@ impl Default for Settings {
 
 #[derive(Default, Serialize, Deserialize)]
 pub struct Cache {
-    projects: Vec<Project>,
+    pub projects: Vec<Project>,
 }
 
 impl Cache {
@@ -140,12 +140,12 @@ impl Cache {
         Vec::new()
     }
 
-    pub fn create_cache(projects: &Vec<Project>) -> anyhow::Result<Self> {
+    pub fn create_cache(projects: &[Project]) -> anyhow::Result<Self> {
         let Ok(app_dir) = pre_config() else {
             bail!("Failed to find config_dir");
         };
 
-        let config_path = format!("{}/cache", app_dir);
+        let config_path = format!("{app_dir}/cache");
 
         let cache = Cache {
             projects: projects.to_vec(),
@@ -157,9 +157,9 @@ impl Cache {
 
         if !Path::new(&config_path).exists() {
             if let Err(err) = fs::write(&config_path, serialized) {
-                eprintln!("Failed to write config: {}", err);
+                eprintln!("Failed to write config: {err}");
             } else {
-                eprintln!("Default config saved to {}", config_path);
+                eprintln!("Default config saved to {config_path}");
             }
         }
 

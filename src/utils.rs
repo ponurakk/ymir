@@ -82,7 +82,7 @@ pub fn get_git_info(repo_path: &Path) -> anyhow::Result<GitInfo> {
 
     revwalk.set_sorting(git2::Sort::REVERSE)?;
     let first_commit_id = revwalk.next().and_then(Result::ok);
-    let last_commit_id = revwalk.last().and_then(Result::ok);
+    let last_commit_id = revwalk.last().and_then(Result::ok).or(first_commit_id);
 
     let mut first_commit_time: Option<i64> = None;
 

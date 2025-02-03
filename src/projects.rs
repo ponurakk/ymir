@@ -75,7 +75,7 @@ fn is_build(entry: &DirEntry, ignore_dirs: &[String]) -> bool {
 }
 
 /// Returns a list of directories that contain a `.git` directory
-pub fn find(path: PathBuf, ignore_dirs: &[String]) -> Vec<Project> {
+pub fn find(path: &PathBuf, ignore_dirs: &[String]) -> Vec<Project> {
     let mut paths: Vec<Project> = Vec::new();
 
     for entry in WalkDir::new(path)
@@ -162,7 +162,7 @@ pub fn find_from_cache(projects: Vec<PathBuf>) -> Vec<Project> {
             .collect();
 
         let size = get_size(&path).unwrap_or(0);
-        paths.push(Project::new(path.to_path_buf(), size, languages, total));
+        paths.push(Project::new(path.clone(), size, languages, total));
         eprintln!("{} - {}", paths.len(), path.display());
     }
 

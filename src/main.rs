@@ -45,18 +45,17 @@ fn main() -> anyhow::Result<()> {
         bail!("You must specify the directory");
     };
 
-    let cache = Cache::read_cache();
-
-    let projects = if !cache.is_empty() {
-        cache
-        // projects::find_from_cache(cache.iter().map(|v| v.path.clone()).collect())
+    let cache = if args.no_cache {
+        Cache::create_cache(&projects::find(&find_dir, &settings.ignore_dirs))?.projects
     } else {
-        projects::find(find_dir, &settings.ignore_dirs)
+        Cache::read_cache()
     };
 
-    if !args.no_cache {
-        Cache::create_cache(&projects)?;
-    }
+    let projects = if cache.is_empty() {
+        projects::find(&find_dir, &settings.ignore_dirs)
+    } else {
+        cache
+    };
 
     let terminal = ratatui::init();
     let app_result = App::new(projects).run(terminal);
