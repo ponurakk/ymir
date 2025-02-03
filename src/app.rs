@@ -13,7 +13,7 @@ use ratatui::{
     DefaultTerminal,
 };
 
-use ratatui::style::palette::tailwind::{NEUTRAL, SLATE};
+use ratatui::style::palette::tailwind::{NEUTRAL, RED, SLATE};
 
 use crate::projects::Project;
 
@@ -25,6 +25,7 @@ pub struct App {
 }
 
 const SELECTED_STYLE: Style = Style::new().bg(NEUTRAL.c900).add_modifier(Modifier::BOLD);
+const INACTIVE_COLOR: Color = RED.c700;
 const TEXT_FG_COLOR: Color = SLATE.c200;
 
 impl App {
@@ -294,6 +295,12 @@ impl FromIterator<Project> for ProjectsList {
 
 impl From<&Project> for ListItem<'_> {
     fn from(value: &Project) -> Self {
-        ListItem::new(value.path.display().to_string())
+        let mut item = ListItem::new(value.path.display().to_string());
+
+        if value.git_info.commit_count == 0 {
+            item = item.fg(INACTIVE_COLOR);
+        }
+
+        item
     }
 }
