@@ -4,6 +4,7 @@
 mod app;
 mod config;
 mod projects;
+mod sorting;
 mod utils;
 
 use std::path::PathBuf;

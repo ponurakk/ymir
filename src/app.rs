@@ -1,11 +1,12 @@
 //! App for ymir
+
 use ratatui::{
     buffer::Buffer,
     crossterm::event::{self, Event, KeyCode, KeyEvent},
     layout::{Constraint, Layout, Rect},
     style::{Color, Modifier, Style, Stylize},
     symbols,
-    text::Line,
+    text::{Line, Span},
     widgets::{
         Block, Borders, Cell, HighlightSpacing, List, ListItem, ListState, Padding, Paragraph, Row,
         StatefulWidget, Table, Widget, Wrap,
@@ -13,15 +14,21 @@ use ratatui::{
     DefaultTerminal,
 };
 
-use ratatui::style::palette::tailwind::{NEUTRAL, RED, SLATE};
+use ratatui::style::palette::tailwind::{CYAN, NEUTRAL, RED, SLATE};
 
-use crate::projects::Project;
+use crate::{
+    projects::Project,
+    sorting::{Filter, Sorting},
+};
 
 pub struct App {
     should_exit: bool,
     show_project_info: bool,
     show_languages: bool,
     projects_list: ProjectsList,
+    sort_type: Sorting,
+    filter_type: Filter,
+    invert: bool,
 }
 
 const SELECTED_STYLE: Style = Style::new().bg(NEUTRAL.c900).add_modifier(Modifier::BOLD);
@@ -35,7 +42,10 @@ impl App {
             should_exit: false,
             show_project_info: true,
             show_languages: true,
+            sort_type: Sorting::Name,
+            filter_type: Filter::All,
             projects_list: ProjectsList::from_iter(projects_list),
+            invert: false,
         }
     }
 
@@ -56,21 +66,37 @@ impl App {
 
         match key.code {
             KeyCode::Char('q') | KeyCode::Esc => self.should_exit = true,
-            KeyCode::Char('h') | KeyCode::Left => self.select_none(),
+            // Movement
             KeyCode::Char('j') | KeyCode::Down => self.select_next(),
             KeyCode::Char('k') | KeyCode::Up => self.select_previous(),
             KeyCode::Char('d') => self.select_next_10(),
             KeyCode::Char('u') => self.select_previous_10(),
             KeyCode::Char('g') | KeyCode::Home => self.select_first(),
             KeyCode::Char('G') | KeyCode::End => self.select_last(),
+
+            // Toggle
             KeyCode::Char('1') => self.show_project_info = !self.show_project_info,
             KeyCode::Char('2') => self.show_languages = !self.show_languages,
+
+            // Sorting
+            KeyCode::Char('h') | KeyCode::Left => {
+                self.sort_type = self.sort_type.previous();
+                self.projects_list
+                    .sort_projects(&self.sort_type, self.invert);
+            }
+            KeyCode::Char('l') | KeyCode::Right => {
+                self.sort_type = self.sort_type.next();
+                self.projects_list
+                    .sort_projects(&self.sort_type, self.invert);
+            }
+            KeyCode::Char('i') => {
+                self.invert = !self.invert;
+                self.projects_list
+                    .sort_projects(&self.sort_type, self.invert);
+            }
+
             _ => {}
         }
-    }
-
-    fn select_none(&mut self) {
-        self.projects_list.state.select(None);
     }
 
     fn select_next(&mut self) {
@@ -159,8 +185,26 @@ impl App {
     }
 
     fn render_list(&mut self, area: Rect, buf: &mut Buffer) {
+        let sort_title = vec![
+            Span::styled(" < ", Style::default().fg(CYAN.c500)),
+            Span::from(self.sort_type.to_string()),
+            Span::styled(" > ", Style::default().fg(CYAN.c500)),
+        ];
+
+        let mut invert_title = Line::from(vec![
+            Span::styled(" i", Style::default().fg(CYAN.c500)),
+            Span::from("nvert "),
+        ])
+        .right_aligned();
+
+        if self.invert {
+            invert_title = invert_title.add_modifier(Modifier::BOLD);
+        }
+
         let block = Block::new()
             .title(Line::raw("Projects").left_aligned())
+            .title(invert_title)
+            .title(Line::from(sort_title).right_aligned())
             .borders(Borders::ALL)
             .border_set(symbols::border::ROUNDED);
 
@@ -281,6 +325,45 @@ impl App {
 struct ProjectsList {
     items: Vec<Project>,
     state: ListState,
+}
+
+impl ProjectsList {
+    fn sort_projects(&mut self, sort_type: &Sorting, invert: bool) {
+        let mut items: Vec<Project> = self.items.clone();
+
+        match sort_type {
+            Sorting::Name => {
+                items.sort_by(|a, b| a.path.cmp(&b.path));
+            }
+            Sorting::Size => {
+                items.sort_by(|a, b| a.size.cmp(&b.size));
+            }
+            Sorting::Commits => {
+                items.sort_by(|a, b| a.git_info.commit_count.cmp(&b.git_info.commit_count));
+            }
+            Sorting::CreationDate => {
+                items.sort_by(|a, b| a.git_info.init_date.cmp(&b.git_info.init_date));
+            }
+            Sorting::ModificationDate => {
+                items.sort_by(|a, b| {
+                    a.git_info
+                        .last_commit_date
+                        .cmp(&b.git_info.last_commit_date)
+                });
+            }
+        }
+
+        if invert {
+            items.reverse();
+        }
+
+        self.items = items;
+        if !self.items.is_empty() {
+            self.state.select(Some(0));
+        } else {
+            self.state.select(None);
+        }
+    }
 }
 
 impl FromIterator<Project> for ProjectsList {
