@@ -59,8 +59,8 @@ impl App {
             KeyCode::Char('h') | KeyCode::Left => self.select_none(),
             KeyCode::Char('j') | KeyCode::Down => self.select_next(),
             KeyCode::Char('k') | KeyCode::Up => self.select_previous(),
-            KeyCode::Char('d') => self.select_next_5(),
-            KeyCode::Char('u') => self.select_previous_5(),
+            KeyCode::Char('d') => self.select_next_10(),
+            KeyCode::Char('u') => self.select_previous_10(),
             KeyCode::Char('g') | KeyCode::Home => self.select_first(),
             KeyCode::Char('G') | KeyCode::End => self.select_last(),
             KeyCode::Char('1') => self.show_project_info = !self.show_project_info,
@@ -81,13 +81,13 @@ impl App {
         self.projects_list.state.select_previous();
     }
 
-    fn select_next_5(&mut self) {
+    fn select_next_10(&mut self) {
         self.projects_list.state.select(Some(
             self.projects_list.state.selected().map_or(0, |v| v + 10),
         ));
     }
 
-    fn select_previous_5(&mut self) {
+    fn select_previous_10(&mut self) {
         self.projects_list.state.select(Some(
             self.projects_list
                 .state
