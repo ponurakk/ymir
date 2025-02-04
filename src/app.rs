@@ -6,7 +6,7 @@ use ratatui::{
     layout::{Constraint, Layout, Rect},
     style::{Color, Modifier, Style, Stylize},
     symbols,
-    text::{Line, Span},
+    text::{Line, Span, Text},
     widgets::{
         Block, Borders, Cell, HighlightSpacing, List, ListItem, ListState, Padding, Paragraph, Row,
         StatefulWidget, Table, Widget, Wrap,
@@ -29,6 +29,11 @@ pub struct App {
     sort_type: Sorting,
     filter_type: Filter,
     invert: bool,
+
+    // Search
+    search_text: Option<String>,
+    search_index: usize,
+    search_count: usize,
 }
 
 const SELECTED_STYLE: Style = Style::new().bg(NEUTRAL.c900).add_modifier(Modifier::BOLD);
@@ -46,6 +51,9 @@ impl App {
             filter_type: Filter::All,
             projects_list: ProjectsList::from_iter(projects_list),
             invert: false,
+            search_text: None,
+            search_index: 0,
+            search_count: 0,
         }
     }
 
@@ -53,7 +61,11 @@ impl App {
         while !self.should_exit {
             terminal.draw(|frame| frame.render_widget(&mut self, frame.area()))?;
             if let Event::Key(key) = event::read()? {
-                self.handle_key(key);
+                if self.search_text.is_some() {
+                    self.handle_search_key(key);
+                } else {
+                    self.handle_key(key);
+                }
             };
         }
         Ok(())
@@ -94,7 +106,54 @@ impl App {
                 self.projects_list
                     .sort_projects(&self.sort_type, self.invert);
             }
+            KeyCode::Char('/') => {
+                if self.search_text.is_some() {
+                    self.search_text = None;
+                } else {
+                    self.search_text = Some("".to_owned());
+                }
+            }
 
+            _ => {}
+        }
+    }
+
+    fn handle_search_key(&mut self, key: KeyEvent) {
+        if key.kind != event::KeyEventKind::Press {
+            return;
+        }
+
+        match key.code {
+            KeyCode::Esc => {
+                self.search_text = None;
+                self.search_index = 0;
+            }
+            KeyCode::Char(c) => {
+                self.search_text.as_mut().map(|v| v.push(c));
+                self.search_count = self.projects_list.search(
+                    &self.search_text.clone().unwrap_or("".to_string()),
+                    self.search_index,
+                );
+            }
+            KeyCode::Backspace => {
+                self.search_text.as_mut().map(|v| v.pop());
+                self.search_count = self.projects_list.search(
+                    &self.search_text.clone().unwrap_or("".to_string()),
+                    self.search_index,
+                );
+            }
+            KeyCode::Enter => {
+                self.search_count = self.projects_list.search(
+                    &self.search_text.clone().unwrap_or("".to_string()),
+                    self.search_index,
+                );
+
+                if self.search_index >= self.search_count.wrapping_sub(1) {
+                    self.search_index = 0;
+                } else {
+                    self.search_index += 1;
+                }
+            }
             _ => {}
         }
     }
@@ -146,6 +205,12 @@ impl Widget for &mut App {
             Layout::horizontal([Constraint::Fill(1), Constraint::Fill(0)]).areas(main_area)
         };
 
+        let [list_area, search_area] = if self.search_text.is_some() {
+            Layout::vertical([Constraint::Fill(1), Constraint::Length(3)]).areas(list_area)
+        } else {
+            Layout::vertical([Constraint::Fill(1), Constraint::Fill(0)]).areas(list_area)
+        };
+
         let [info_area, langs_area] = if self.show_project_info && self.show_languages {
             Layout::vertical([Constraint::Fill(1), Constraint::Fill(1)]).areas(data_area)
         } else if !self.show_project_info && self.show_languages {
@@ -162,6 +227,10 @@ impl Widget for &mut App {
 
         if self.show_project_info {
             self.render_project_info(info_area, buf);
+        }
+
+        if self.search_text.is_some() {
+            self.render_search(search_area, buf);
         }
 
         if self.show_languages {
@@ -223,6 +292,20 @@ impl App {
             .highlight_spacing(HighlightSpacing::Always);
 
         StatefulWidget::render(list, area, buf, &mut self.projects_list.state);
+    }
+
+    fn render_search(&mut self, area: Rect, buf: &mut Buffer) {
+        let block = Block::new()
+            .title(
+                Line::from(format!("[{}/{}]", self.search_index + 1, self.search_count))
+                    .right_aligned(),
+            )
+            .borders(Borders::ALL)
+            .border_set(symbols::border::ROUNDED);
+
+        Paragraph::new(self.search_text.as_ref().map_or("", |v| v))
+            .block(block)
+            .render(area, buf);
     }
 
     fn render_project_info(&self, area: Rect, buf: &mut Buffer) {
@@ -368,6 +451,24 @@ impl ProjectsList {
         } else {
             self.state.select(None);
         }
+    }
+
+    fn search(&mut self, search_text: &str, index: usize) -> usize {
+        let filtered_indices: Vec<usize> = self
+            .items
+            .iter()
+            .enumerate()
+            .filter(|(_, p)| p.path.to_string_lossy().to_string().contains(search_text))
+            .map(|(idx, _)| idx)
+            .collect();
+
+        if let Some(selected_idx) = filtered_indices.get(index) {
+            self.state.select(Some(*selected_idx));
+        } else {
+            self.state.select(None);
+        }
+
+        filtered_indices.len()
     }
 }
 
