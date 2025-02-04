@@ -6,7 +6,10 @@ use serde::{Deserialize, Serialize};
 use tokei::{Config, Languages};
 use walkdir::{DirEntry, WalkDir};
 
-use crate::utils::{format_bytes, get_git_info, get_size, GitInfo};
+use crate::{
+    config::Settings,
+    utils::{format_bytes, get_git_info, get_size, GitInfo},
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Project {
@@ -94,7 +97,7 @@ pub fn find(path: &PathBuf, ignore_dirs: &[String]) -> Vec<Project> {
         };
 
         let mut languages = Languages::new();
-        languages.get_statistics(&[parent], &[], &Config::default());
+        languages.get_statistics(&[parent], &Settings::ignore_dirs(), &Config::default());
 
         let total = languages.total();
         let total: ProjectLanguage = ProjectLanguage {

@@ -37,7 +37,7 @@ fn pre_config() -> anyhow::Result<String> {
 
 impl Settings {
     /// Default ignore directories
-    pub fn ignore_dirs() -> Vec<String> {
+    pub fn ignore_dirs<'a>() -> Vec<&'a str> {
         vec![
             // Build
             "node_modules",
@@ -58,9 +58,6 @@ impl Settings {
             ".svelte-kit",
             ".mypy_cache",
         ]
-        .iter()
-        .map(|&v| (*v).to_string())
-        .collect()
     }
 
     /// Load config
@@ -109,7 +106,10 @@ impl Settings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            ignore_dirs: Self::ignore_dirs(),
+            ignore_dirs: Self::ignore_dirs()
+                .iter()
+                .map(|&v| (*v).to_string())
+                .collect(),
             default_dir: None,
         }
     }
