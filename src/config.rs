@@ -83,7 +83,10 @@ impl Settings {
 
     pub fn write_config() -> anyhow::Result<()> {
         let default_config = Self::default();
-        let serialized = format!("ignore_dirs = {:?}", default_config.ignore_dirs);
+        let serialized = format!(
+            "ignore_dirs = {:?}\ndefault_dir = None",
+            default_config.ignore_dirs
+        );
 
         let Ok(app_dir) = pre_config() else {
             bail!("Failed to find config_dir");
