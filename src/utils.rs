@@ -47,10 +47,12 @@ where
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GitInfo {
     pub remote_url: String,
+    // TODO: Convert to timestamp
     pub init_date: String,
+    // TODO: Convert to timestamp
     pub last_commit_date: String,
     pub last_commit_msg: String,
-    pub commit_count: usize,
+    pub commit_count: u32,
 }
 
 impl Default for GitInfo {
@@ -106,7 +108,7 @@ pub fn get_git_info(repo_path: &Path) -> anyhow::Result<GitInfo> {
 
     let mut revwalk_count = repo.revwalk()?;
     revwalk_count.push_head()?; // Push HEAD so walker sees commits
-    let commit_count = revwalk_count.count();
+    let commit_count = u32::try_from(revwalk_count.count())?;
 
     Ok(GitInfo {
         remote_url,

@@ -8,7 +8,7 @@ use std::{
 use anyhow::bail;
 use serde::{Deserialize, Serialize};
 
-use crate::projects::Project;
+use crate::{cache::CacheSerializer, projects::Project};
 
 /// Settings for ymir
 #[derive(Debug, Deserialize)]
@@ -115,7 +115,7 @@ impl Default for Settings {
     }
 }
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Default, Serialize, Deserialize, Debug)]
 pub struct Cache {
     pub projects: Vec<Project>,
 }
@@ -131,9 +131,9 @@ impl Cache {
         let cache_path = format!("{}/{}/cache", config_dir.display(), env!("CARGO_PKG_NAME"));
 
         if let Ok(file) = fs::read(&cache_path) {
-            return bincode::deserialize::<Cache>(&file)
-                .unwrap_or_default()
-                .projects;
+            let mut cursor = std::io::Cursor::new(file.as_slice());
+            let cache: Cache = CacheSerializer::deserialize(&mut cursor).unwrap_or_default();
+            return cache.projects;
         }
 
         eprintln!("Failed to find file");
@@ -151,7 +151,7 @@ impl Cache {
             projects: projects.to_vec(),
         };
 
-        let Ok(serialized) = bincode::serialize(&cache) else {
+        let Ok(serialized) = CacheSerializer::serialize(&cache) else {
             bail!("Failed to serialize cache");
         };
 

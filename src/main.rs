@@ -2,6 +2,7 @@
 #![warn(missing_docs)]
 
 mod app;
+mod cache;
 mod config;
 mod projects;
 mod sorting;

@@ -6,7 +6,7 @@ use ratatui::{
     layout::{Constraint, Layout, Rect},
     style::{Color, Modifier, Style, Stylize},
     symbols,
-    text::{Line, Span, Text},
+    text::{Line, Span},
     widgets::{
         Block, Borders, Cell, HighlightSpacing, List, ListItem, ListState, Padding, Paragraph, Row,
         StatefulWidget, Table, Widget, Wrap,

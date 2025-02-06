@@ -22,11 +22,11 @@ pub struct Project {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectLanguage {
-    pub files: usize,
-    pub lines: usize,
-    pub code: usize,
-    pub comments: usize,
-    pub blanks: usize,
+    pub files: u32,
+    pub lines: u32,
+    pub code: u32,
+    pub comments: u32,
+    pub blanks: u32,
 }
 
 impl Display for Project {
@@ -101,11 +101,11 @@ pub fn find(path: &PathBuf, ignore_dirs: &[String]) -> Vec<Project> {
 
         let total = languages.total();
         let total: ProjectLanguage = ProjectLanguage {
-            files: total.reports.len(),
-            lines: total.lines(),
-            code: total.code,
-            comments: total.comments,
-            blanks: total.blanks,
+            files: u32::try_from(total.reports.len()).unwrap_or_default(),
+            lines: u32::try_from(total.lines()).unwrap_or_default(),
+            code: u32::try_from(total.code).unwrap_or_default(),
+            comments: u32::try_from(total.comments).unwrap_or_default(),
+            blanks: u32::try_from(total.blanks).unwrap_or_default(),
         };
 
         let languages: HashMap<String, ProjectLanguage> = languages
@@ -114,11 +114,11 @@ pub fn find(path: &PathBuf, ignore_dirs: &[String]) -> Vec<Project> {
                 (
                     key.to_string(),
                     ProjectLanguage {
-                        files: value.reports.len(),
-                        lines: value.lines(),
-                        code: value.code,
-                        comments: value.comments,
-                        blanks: value.blanks,
+                        files: u32::try_from(value.reports.len()).unwrap_or_default(),
+                        lines: u32::try_from(value.lines()).unwrap_or_default(),
+                        code: u32::try_from(value.code).unwrap_or_default(),
+                        comments: u32::try_from(value.comments).unwrap_or_default(),
+                        blanks: u32::try_from(value.blanks).unwrap_or_default(),
                     },
                 )
             })
@@ -132,42 +132,42 @@ pub fn find(path: &PathBuf, ignore_dirs: &[String]) -> Vec<Project> {
     paths
 }
 
-pub fn find_from_cache(projects: Vec<PathBuf>) -> Vec<Project> {
-    let mut paths: Vec<Project> = Vec::new();
-
-    for path in projects {
-        let mut languages = Languages::new();
-        languages.get_statistics(&[&path], &[], &Config::default());
-
-        let total = languages.total();
-        let total: ProjectLanguage = ProjectLanguage {
-            files: total.reports.len(),
-            lines: total.lines(),
-            code: total.code,
-            comments: total.comments,
-            blanks: total.blanks,
-        };
-
-        let languages: HashMap<String, ProjectLanguage> = languages
-            .into_iter()
-            .map(|(key, value)| {
-                (
-                    key.to_string(),
-                    ProjectLanguage {
-                        files: value.reports.len(),
-                        lines: value.lines(),
-                        code: value.code,
-                        comments: value.comments,
-                        blanks: value.blanks,
-                    },
-                )
-            })
-            .collect();
-
-        let size = get_size(&path).unwrap_or(0);
-        paths.push(Project::new(path.clone(), size, languages, total));
-        eprintln!("{} - {}", paths.len(), path.display());
-    }
-
-    paths
-}
+// pub fn find_from_cache(projects: Vec<PathBuf>) -> Vec<Project> {
+//     let mut paths: Vec<Project> = Vec::new();
+//
+//     for path in projects {
+//         let mut languages = Languages::new();
+//         languages.get_statistics(&[&path], &[], &Config::default());
+//
+//         let total = languages.total();
+//         let total: ProjectLanguage = ProjectLanguage {
+//             files: total.reports.len(),
+//             lines: total.lines(),
+//             code: total.code,
+//             comments: total.comments,
+//             blanks: total.blanks,
+//         };
+//
+//         let languages: HashMap<String, ProjectLanguage> = languages
+//             .into_iter()
+//             .map(|(key, value)| {
+//                 (
+//                     key.to_string(),
+//                     ProjectLanguage {
+//                         files: value.reports.len(),
+//                         lines: value.lines(),
+//                         code: value.code,
+//                         comments: value.comments,
+//                         blanks: value.blanks,
+//                     },
+//                 )
+//             })
+//             .collect();
+//
+//         let size = get_size(&path).unwrap_or(0);
+//         paths.push(Project::new(path.clone(), size, languages, total));
+//         eprintln!("{} - {}", paths.len(), path.display());
+//     }
+//
+//     paths
+// }
