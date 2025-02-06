@@ -6,7 +6,7 @@ use std::{
 };
 
 use anyhow::bail;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use crate::{cache::CacheSerializer, projects::Project};
 
@@ -118,7 +118,7 @@ impl Default for Settings {
     }
 }
 
-#[derive(Default, Serialize, Deserialize, Debug)]
+#[derive(Default, Debug)]
 pub struct Cache {
     pub projects: Vec<Project>,
 }

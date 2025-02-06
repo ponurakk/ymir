@@ -2,7 +2,6 @@
 
 use std::{collections::HashMap, ffi::OsStr, fmt::Display, path::PathBuf};
 
-use serde::{Deserialize, Serialize};
 use tokei::{Config, Languages};
 use walkdir::{DirEntry, WalkDir};
 
@@ -11,7 +10,7 @@ use crate::{
     utils::{format_bytes, get_git_info, get_size, GitInfo},
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct Project {
     pub path: PathBuf,
     pub size: u64,
@@ -20,7 +19,7 @@ pub struct Project {
     pub languages_total: ProjectLanguage,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ProjectLanguage {
     pub files: u32,
     pub lines: u32,

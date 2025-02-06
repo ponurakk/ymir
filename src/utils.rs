@@ -2,7 +2,6 @@ use std::{fs::read_dir, path::Path};
 
 use chrono::{DateTime, Local};
 use git2::Repository;
-use serde::{Deserialize, Serialize};
 
 pub fn format_bytes(bytes: u64) -> String {
     let sizes = ["B", "K", "M", "G", "T", "P", "E"];
@@ -44,7 +43,7 @@ where
     Ok(size_in_bytes)
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct GitInfo {
     pub remote_url: String,
     // TODO: Convert to timestamp
