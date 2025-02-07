@@ -135,7 +135,13 @@ impl Cache {
 
         if let Ok(file) = fs::read(&cache_path) {
             let mut cursor = std::io::Cursor::new(file.as_slice());
-            let cache: Cache = CacheSerializer::deserialize(&mut cursor).unwrap_or_default();
+            let cache: Cache = match CacheSerializer::deserialize(&mut cursor) {
+                Ok(cache) => cache,
+                Err(e) => {
+                    eprintln!("{:#?}", e);
+                    return Vec::new();
+                }
+            };
             return cache.projects;
         }
 

@@ -46,10 +46,8 @@ where
 #[derive(Debug, Clone)]
 pub struct GitInfo {
     pub remote_url: String,
-    // TODO: Convert to timestamp
-    pub init_date: String,
-    // TODO: Convert to timestamp
-    pub last_commit_date: String,
+    pub init_date: u32,
+    pub last_commit_date: u32,
     pub last_commit_msg: String,
     pub commit_count: u32,
 }
@@ -58,8 +56,8 @@ impl Default for GitInfo {
     fn default() -> Self {
         Self {
             remote_url: "Unknown".to_string(),
-            init_date: "Unknown".to_string(),
-            last_commit_date: "Unknown".to_string(),
+            init_date: 0,
+            last_commit_date: 0,
             last_commit_msg: "Unknown".to_string(),
             commit_count: 0,
         }
@@ -121,12 +119,9 @@ pub fn get_git_info(repo_path: &Path) -> anyhow::Result<GitInfo> {
     })
 }
 
-fn format_time(timestamp: Option<i64>) -> String {
-    timestamp.map_or("No commits".to_string(), |t| {
-        DateTime::from_timestamp(t, 0).map_or("Invalid Date".to_string(), |dt| {
-            dt.with_timezone(&Local)
-                .format("%Y-%m-%d %H:%M:%S")
-                .to_string()
-        })
-    })
+fn format_time(timestamp: Option<i64>) -> u32 {
+    timestamp
+        .and_then(|t| DateTime::from_timestamp(t, 0))
+        .map(|dt| dt.with_timezone(&Local).timestamp() as u32)
+        .unwrap_or(0)
 }

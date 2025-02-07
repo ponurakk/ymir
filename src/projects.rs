@@ -2,6 +2,7 @@
 
 use std::{collections::HashMap, ffi::OsStr, fmt::Display, path::PathBuf};
 
+use chrono::{Local, TimeZone};
 use tokei::{Config, Languages};
 use walkdir::{DirEntry, WalkDir};
 
@@ -30,6 +31,18 @@ pub struct ProjectLanguage {
 
 impl Display for Project {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let init_date = Local
+            .timestamp_opt(self.git_info.init_date as i64, 0)
+            .single()
+            .map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string())
+            .unwrap_or("Invalid date".to_string());
+
+        let last_commit_date = Local
+            .timestamp_opt(self.git_info.last_commit_date as i64, 0)
+            .single()
+            .map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string())
+            .unwrap_or("Invalid date".to_string());
+
         write!(
             f,
             "Project Name: {}\nPath: {}\nSize: {}\nCreated At: {}\nModified At: {}\n\n# Git:\nLast Commit: {}\nCommits: {}\nRemote: {}",
@@ -40,8 +53,8 @@ impl Display for Project {
                     .unwrap_or_default()),
             self.path.display(),
             format_bytes(self.size),
-            self.git_info.init_date,
-            self.git_info.last_commit_date,
+            init_date,
+            last_commit_date,
             self.git_info.last_commit_msg,
             self.git_info.commit_count,
             self.git_info.remote_url,

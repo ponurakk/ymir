@@ -13,7 +13,7 @@ use crate::{
 };
 
 const MAGIC: &[u8; 4] = b"YMIR";
-const VERSION: u8 = 1;
+const VERSION: u8 = 2;
 
 pub trait CacheSerializer {
     fn serialize(&self) -> anyhow::Result<Vec<u8>>;
@@ -52,7 +52,7 @@ impl CacheSerializer for Cache {
             .read_exact(&mut version)
             .with_context(|| "Failed to read version")?;
         if version[0] != VERSION {
-            bail!("Invalid version. Found: {}, eurrent {VERSION}", version[0]);
+            bail!("Invalid version. Found: {}, current {VERSION}", version[0]);
         }
 
         let mut len_bytes = [0u8; 2];
@@ -135,12 +135,10 @@ impl CacheSerializer for GitInfo {
         buffer.extend_from_slice(&self.remote_url.to_string().as_bytes());
 
         // Init date
-        buffer.extend_from_slice(&u16::try_from(self.init_date.len())?.to_le_bytes());
-        buffer.extend_from_slice(&self.init_date.to_string().as_bytes());
+        buffer.extend_from_slice(&self.init_date.to_le_bytes());
 
         // Last commit date
-        buffer.extend_from_slice(&u16::try_from(self.last_commit_date.len())?.to_le_bytes());
-        buffer.extend_from_slice(&self.last_commit_date.to_string().as_bytes());
+        buffer.extend_from_slice(&self.last_commit_date.to_le_bytes());
 
         // Last commit msg
         buffer.extend_from_slice(&u16::try_from(self.last_commit_msg.len())?.to_le_bytes());
@@ -164,24 +162,13 @@ impl CacheSerializer for GitInfo {
             .with_context(|| "Failed to read remote url")?;
         let remote_url = String::from_utf8(remote_url).with_context(|| "Invalid UTF-8 key")?;
 
-        // Init date
-        cursor.read_exact(&mut len_bytes)?;
-        let init_date_len = u16::from_le_bytes(len_bytes) as usize;
-        let mut init_date_url = vec![0u8; init_date_len];
-        cursor
-            .read_exact(&mut init_date_url)
-            .with_context(|| "Failed to read init date")?;
-        let init_date = String::from_utf8(init_date_url).with_context(|| "Invalid UTF-8 key")?;
+        let mut init_date = u32::MAX.to_le_bytes();
+        cursor.read_exact(&mut init_date)?;
+        let init_date = u32::from_le_bytes(init_date);
 
-        // Last commit date
-        cursor.read_exact(&mut len_bytes)?;
-        let last_commit_date_len = u16::from_le_bytes(len_bytes) as usize;
-        let mut last_commit_date = vec![0u8; last_commit_date_len];
-        cursor
-            .read_exact(&mut last_commit_date)
-            .with_context(|| "Failed to read last commit date")?;
-        let last_commit_date =
-            String::from_utf8(last_commit_date).with_context(|| "Invalid UTF-8 key")?;
+        let mut last_commit_date = u32::MAX.to_le_bytes();
+        cursor.read_exact(&mut last_commit_date)?;
+        let last_commit_date = u32::from_le_bytes(last_commit_date);
 
         // Last commit msg
         cursor.read_exact(&mut len_bytes)?;
