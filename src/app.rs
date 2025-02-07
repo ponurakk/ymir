@@ -15,6 +15,7 @@ use ratatui::{
 };
 
 use ratatui::style::palette::tailwind::{CYAN, NEUTRAL, RED, SLATE};
+use tokei::LanguageType;
 
 use crate::{
     projects::Project,
@@ -350,7 +351,9 @@ impl App {
                         total_blanks += l.blanks;
 
                         Row::new(vec![
-                            ltype.to_string(),
+                            LanguageType::list()
+                                .get(*ltype as usize)
+                                .map_or("Error".to_string(), |v| v.to_string()),
                             l.files.to_string(),
                             l.lines.to_string(),
                             l.code.to_string(),

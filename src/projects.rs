@@ -16,7 +16,7 @@ pub struct Project {
     pub path: PathBuf,
     pub size: u64,
     pub git_info: GitInfo,
-    pub languages: HashMap<String, ProjectLanguage>,
+    pub languages: HashMap<u8, ProjectLanguage>,
     pub languages_total: ProjectLanguage,
 }
 
@@ -55,9 +55,9 @@ impl Display for Project {
             format_bytes(self.size),
             init_date,
             last_commit_date,
-            self.git_info.last_commit_msg,
+            self.git_info.last_commit_msg.as_ref().map_or("Unknown", |v| v),
             self.git_info.commit_count,
-            self.git_info.remote_url,
+            self.git_info.remote_url.as_ref().map_or("Unknown", |v| v),
         )
     }
 }
@@ -66,7 +66,7 @@ impl Project {
     pub fn new(
         path: PathBuf,
         size: u64,
-        languages: HashMap<String, ProjectLanguage>,
+        languages: HashMap<u8, ProjectLanguage>,
         languages_total: ProjectLanguage,
     ) -> Self {
         let git_info = get_git_info(&path).unwrap_or_default();
@@ -120,11 +120,11 @@ pub fn find(path: &PathBuf, ignore_dirs: &[String]) -> Vec<Project> {
             blanks: u32::try_from(total.blanks).unwrap_or_default(),
         };
 
-        let languages: HashMap<String, ProjectLanguage> = languages
+        let languages: HashMap<u8, ProjectLanguage> = languages
             .into_iter()
             .map(|(key, value)| {
                 (
-                    key.to_string(),
+                    key as u8,
                     ProjectLanguage {
                         files: u32::try_from(value.reports.len()).unwrap_or_default(),
                         lines: u32::try_from(value.lines()).unwrap_or_default(),

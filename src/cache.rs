@@ -13,7 +13,7 @@ use crate::{
 };
 
 const MAGIC: &[u8; 4] = b"YMIR";
-const VERSION: u8 = 2;
+const VERSION: u8 = 3;
 
 pub trait CacheSerializer {
     fn serialize(&self) -> anyhow::Result<Vec<u8>>;
@@ -113,7 +113,7 @@ impl CacheSerializer for Project {
         let size = u64::from_le_bytes(size);
 
         let git_info = GitInfo::deserialize(cursor)?;
-        let languages = HashMap::deserialize(cursor)?;
+        let languages: HashMap<u8, ProjectLanguage> = HashMap::deserialize(cursor)?;
         let languages_total = ProjectLanguage::deserialize(cursor)?;
 
         Ok(Self {
@@ -131,8 +131,12 @@ impl CacheSerializer for GitInfo {
         let mut buffer: Vec<u8> = Vec::new();
 
         // Remote url
-        buffer.extend_from_slice(&u16::try_from(self.remote_url.len())?.to_le_bytes());
-        buffer.extend_from_slice(&self.remote_url.to_string().as_bytes());
+        if let Some(remote_url) = &self.remote_url {
+            buffer.extend_from_slice(&u16::try_from(remote_url.len())?.to_le_bytes());
+            buffer.extend_from_slice(remote_url.as_bytes());
+        } else {
+            buffer.extend_from_slice(&0_u16.to_le_bytes());
+        }
 
         // Init date
         buffer.extend_from_slice(&self.init_date.to_le_bytes());
@@ -141,8 +145,12 @@ impl CacheSerializer for GitInfo {
         buffer.extend_from_slice(&self.last_commit_date.to_le_bytes());
 
         // Last commit msg
-        buffer.extend_from_slice(&u16::try_from(self.last_commit_msg.len())?.to_le_bytes());
-        buffer.extend_from_slice(&self.last_commit_msg.to_string().as_bytes());
+        if let Some(last_commit_msg) = &self.last_commit_msg {
+            buffer.extend_from_slice(&u16::try_from(last_commit_msg.len())?.to_le_bytes());
+            buffer.extend_from_slice(last_commit_msg.as_bytes());
+        } else {
+            buffer.extend_from_slice(&0_u16.to_le_bytes());
+        }
 
         // Commit count
         buffer.extend_from_slice(&self.commit_count.to_le_bytes());
@@ -152,15 +160,19 @@ impl CacheSerializer for GitInfo {
 
     fn deserialize(cursor: &mut Cursor<&[u8]>) -> anyhow::Result<Self> {
         let mut len_bytes = [0u8; 2];
-        cursor.read_exact(&mut len_bytes)?;
 
         // Remote url
+        cursor.read_exact(&mut len_bytes)?;
         let remote_url_len = u16::from_le_bytes(len_bytes) as usize;
-        let mut remote_url = vec![0u8; remote_url_len];
-        cursor
-            .read_exact(&mut remote_url)
-            .with_context(|| "Failed to read remote url")?;
-        let remote_url = String::from_utf8(remote_url).with_context(|| "Invalid UTF-8 key")?;
+        let remote_url: Option<String> = if remote_url_len > 0 {
+            let mut remote_url = vec![0u8; remote_url_len];
+            cursor
+                .read_exact(&mut remote_url)
+                .with_context(|| "Failed to read remote url")?;
+            Some(String::from_utf8(remote_url).with_context(|| "Invalid UTF-8 key")?)
+        } else {
+            None
+        };
 
         let mut init_date = u32::MAX.to_le_bytes();
         cursor.read_exact(&mut init_date)?;
@@ -173,12 +185,15 @@ impl CacheSerializer for GitInfo {
         // Last commit msg
         cursor.read_exact(&mut len_bytes)?;
         let last_commit_msg_len = u16::from_le_bytes(len_bytes) as usize;
-        let mut last_commit_msg = vec![0u8; last_commit_msg_len];
-        cursor
-            .read_exact(&mut last_commit_msg)
-            .with_context(|| "Failed to read last commit msg")?;
-        let last_commit_msg =
-            String::from_utf8(last_commit_msg).with_context(|| "Invalid UTF-8 key")?;
+        let last_commit_msg = if last_commit_msg_len > 0 {
+            let mut last_commit_msg = vec![0u8; last_commit_msg_len];
+            cursor
+                .read_exact(&mut last_commit_msg)
+                .with_context(|| "Failed to read last commit msg")?;
+            Some(String::from_utf8(last_commit_msg).with_context(|| "Invalid UTF-8 key")?)
+        } else {
+            None
+        };
 
         let mut commit_count = u32::MAX.to_le_bytes();
         cursor.read_exact(&mut commit_count)?;
@@ -238,7 +253,7 @@ impl CacheSerializer for ProjectLanguage {
     }
 }
 
-impl<T> CacheSerializer for HashMap<String, T>
+impl<T> CacheSerializer for HashMap<u8, T>
 where
     T: CacheSerializer,
 {
@@ -248,8 +263,7 @@ where
         buffer.extend_from_slice(&u16::try_from(self.len())?.to_le_bytes());
         for (key, value) in self {
             // Key
-            buffer.extend_from_slice(&u16::try_from(key.len())?.to_le_bytes());
-            buffer.extend_from_slice(key.as_bytes());
+            buffer.extend_from_slice(&key.to_le_bytes());
 
             // Value
             buffer.extend_from_slice(&T::serialize(value)?);
@@ -259,8 +273,6 @@ where
     }
 
     fn deserialize(cursor: &mut Cursor<&[u8]>) -> anyhow::Result<Self> {
-        let mut len_bytes = [0u8; 2];
-
         // Hashmap count
         let mut hashmap_len = u16::MAX.to_le_bytes();
         cursor
@@ -271,17 +283,12 @@ where
         let mut hashmap = HashMap::new();
 
         for _ in 0..hashmap_len {
-            // KEY
-            cursor
-                .read_exact(&mut len_bytes)
-                .with_context(|| "Failed to read key len")?;
-            let key_len = u16::from_le_bytes(len_bytes) as usize;
-            let mut key = vec![0u8; key_len];
-            cursor
-                .read_exact(&mut key)
-                .with_context(|| "Failed to read key")?;
+            // Key
+            let mut key = u8::MAX.to_le_bytes();
+            cursor.read_exact(&mut key)?;
+            let key = u8::from_le_bytes(key);
 
-            let key = String::from_utf8(key)?;
+            // Value
             let value = T::deserialize(cursor)?;
 
             hashmap.insert(key, value);

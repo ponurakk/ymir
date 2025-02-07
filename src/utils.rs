@@ -45,20 +45,20 @@ where
 
 #[derive(Debug, Clone)]
 pub struct GitInfo {
-    pub remote_url: String,
+    pub remote_url: Option<String>,
     pub init_date: u32,
     pub last_commit_date: u32,
-    pub last_commit_msg: String,
+    pub last_commit_msg: Option<String>,
     pub commit_count: u32,
 }
 
 impl Default for GitInfo {
     fn default() -> Self {
         Self {
-            remote_url: "Unknown".to_string(),
+            remote_url: None,
             init_date: 0,
             last_commit_date: 0,
-            last_commit_msg: "Unknown".to_string(),
+            last_commit_msg: None,
             commit_count: 0,
         }
     }
@@ -70,8 +70,7 @@ pub fn get_git_info(repo_path: &Path) -> anyhow::Result<GitInfo> {
     let remote_url = repo
         .find_remote("origin")
         .ok()
-        .and_then(|r| r.url().map(String::from))
-        .unwrap_or_else(|| "No remote found".to_string());
+        .and_then(|r| r.url().map(String::from));
 
     let mut revwalk = repo.revwalk()?;
     if revwalk.push_head().is_err() {
@@ -111,10 +110,7 @@ pub fn get_git_info(repo_path: &Path) -> anyhow::Result<GitInfo> {
         remote_url,
         init_date: format_time(first_commit_time),
         last_commit_date: format_time(last_commit_time),
-        last_commit_msg: last_commit_message
-            .as_ref()
-            .map_or("Unknown", |v| v.trim())
-            .to_string(),
+        last_commit_msg: last_commit_message.as_ref().map(|v| v.trim().to_string()),
         commit_count,
     })
 }
