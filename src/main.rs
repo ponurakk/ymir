@@ -4,6 +4,7 @@
 mod app;
 mod cache;
 mod config;
+mod huffman;
 mod projects;
 mod sorting;
 mod utils;

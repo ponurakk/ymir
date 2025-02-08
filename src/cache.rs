@@ -8,12 +8,13 @@ use anyhow::{bail, Context};
 
 use crate::{
     config::Cache,
+    huffman::{huffman_decode, huffman_encode},
     projects::{Project, ProjectLanguage},
     utils::GitInfo,
 };
 
 const MAGIC: &[u8; 4] = b"YMIR";
-const VERSION: u8 = 3;
+const VERSION: u8 = 4;
 
 pub trait CacheSerializer {
     fn serialize(&self) -> anyhow::Result<Vec<u8>>;
@@ -25,9 +26,6 @@ pub trait CacheSerializer {
 impl CacheSerializer for Cache {
     fn serialize(&self) -> anyhow::Result<Vec<u8>> {
         let mut buffer: Vec<u8> = Vec::new();
-        buffer.extend_from_slice(MAGIC);
-        buffer.push(VERSION);
-
         // Projects len
         buffer.extend_from_slice(&u16::try_from(self.projects.len())?.to_le_bytes());
 
@@ -35,7 +33,13 @@ impl CacheSerializer for Cache {
             buffer.extend_from_slice(&project.serialize()?);
         }
 
-        Ok(buffer)
+        // Huffman encoding
+        let mut new_buffer: Vec<u8> = Vec::new();
+        new_buffer.extend_from_slice(MAGIC);
+        new_buffer.push(VERSION);
+        new_buffer.extend_from_slice(&huffman_encode(&buffer));
+
+        Ok(new_buffer)
     }
 
     fn deserialize(cursor: &mut Cursor<&[u8]>) -> anyhow::Result<Self> {
@@ -55,6 +59,10 @@ impl CacheSerializer for Cache {
             bail!("Invalid version. Found: {}, current {VERSION}", version[0]);
         }
 
+        // Huffman decoding
+        let buffer = huffman_decode(&cursor.clone().into_inner()[cursor.position() as usize..])?;
+        let mut cursor = std::io::Cursor::new(buffer.as_slice());
+
         let mut len_bytes = [0u8; 2];
         cursor
             .read_exact(&mut len_bytes)
@@ -64,7 +72,7 @@ impl CacheSerializer for Cache {
         let mut projects: Vec<Project> = Vec::new();
 
         for _ in 0..projects_len {
-            projects.push(Project::deserialize(cursor)?);
+            projects.push(Project::deserialize(&mut cursor)?);
         }
 
         Ok(Self { projects })
