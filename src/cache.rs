@@ -63,11 +63,9 @@ impl CacheSerializer for Cache {
         let buffer = huffman_decode(&cursor.clone().into_inner()[cursor.position() as usize..])?;
         let mut cursor = std::io::Cursor::new(buffer.as_slice());
 
-        let mut len_bytes = [0u8; 2];
-        cursor
-            .read_exact(&mut len_bytes)
-            .with_context(|| "Failed to read projects length")?;
-        let projects_len = u16::from_le_bytes(len_bytes) as usize;
+        let projects_len = cursor
+            .read_u16()
+            .with_context(|| "Failed to read projects_len")? as usize;
 
         let mut projects: Vec<Project> = Vec::new();
 
@@ -83,16 +81,14 @@ impl CacheSerializer for Project {
     fn serialize(&self) -> anyhow::Result<Vec<u8>> {
         let mut buffer: Vec<u8> = Vec::new();
 
-        // Path
         let path = self.path.to_string_lossy();
         buffer.extend_from_slice(&u16::try_from(path.len())?.to_le_bytes());
         buffer.extend_from_slice(&path.to_string().as_bytes());
 
-        // Size
         buffer.extend_from_slice(&self.size.to_le_bytes());
 
-        // Git Info
         buffer.extend_from_slice(&GitInfo::serialize(&self.git_info)?);
+
         buffer.extend_from_slice(&self.languages.serialize()?);
         buffer.extend_from_slice(&ProjectLanguage::serialize(&self.languages_total)?);
 
@@ -100,25 +96,16 @@ impl CacheSerializer for Project {
     }
 
     fn deserialize(cursor: &mut Cursor<&[u8]>) -> anyhow::Result<Self> {
-        let mut len_bytes = [0u8; 2];
+        let path_len = cursor
+            .read_u16()
+            .with_context(|| "Failed to read path len")? as usize;
 
-        // Path
-        cursor
-            .read_exact(&mut len_bytes)
-            .with_context(|| "Failed to read path len")?;
-        let path_len = u16::from_le_bytes(len_bytes) as usize;
-        let mut path = vec![0u8; path_len];
-        cursor
-            .read_exact(&mut path)
+        let path = cursor
+            .read_string(path_len)
             .with_context(|| "Failed to read path")?;
-        let path = PathBuf::from(String::from_utf8(path)?);
+        let path = PathBuf::from(path);
 
-        // Size
-        let mut size = u64::MAX.to_le_bytes();
-        cursor
-            .read_exact(&mut size)
-            .with_context(|| "Failed to read size")?;
-        let size = u64::from_le_bytes(size);
+        let size = cursor.read_u64().with_context(|| "Failed to read size")?;
 
         let git_info = GitInfo::deserialize(cursor)?;
         let languages: HashMap<u8, ProjectLanguage> = HashMap::deserialize(cursor)?;
@@ -138,7 +125,6 @@ impl CacheSerializer for GitInfo {
     fn serialize(&self) -> anyhow::Result<Vec<u8>> {
         let mut buffer: Vec<u8> = Vec::new();
 
-        // Remote url
         if let Some(remote_url) = &self.remote_url {
             buffer.extend_from_slice(&u16::try_from(remote_url.len())?.to_le_bytes());
             buffer.extend_from_slice(remote_url.as_bytes());
@@ -146,13 +132,9 @@ impl CacheSerializer for GitInfo {
             buffer.extend_from_slice(&0_u16.to_le_bytes());
         }
 
-        // Init date
         buffer.extend_from_slice(&self.init_date.to_le_bytes());
-
-        // Last commit date
         buffer.extend_from_slice(&self.last_commit_date.to_le_bytes());
 
-        // Last commit msg
         if let Some(last_commit_msg) = &self.last_commit_msg {
             buffer.extend_from_slice(&u16::try_from(last_commit_msg.len())?.to_le_bytes());
             buffer.extend_from_slice(last_commit_msg.as_bytes());
@@ -160,52 +142,49 @@ impl CacheSerializer for GitInfo {
             buffer.extend_from_slice(&0_u16.to_le_bytes());
         }
 
-        // Commit count
         buffer.extend_from_slice(&self.commit_count.to_le_bytes());
 
         Ok(buffer)
     }
 
     fn deserialize(cursor: &mut Cursor<&[u8]>) -> anyhow::Result<Self> {
-        let mut len_bytes = [0u8; 2];
+        let remote_url_len = cursor
+            .read_u16()
+            .with_context(|| "Failed to read remote url len")?;
 
-        // Remote url
-        cursor.read_exact(&mut len_bytes)?;
-        let remote_url_len = u16::from_le_bytes(len_bytes) as usize;
-        let remote_url: Option<String> = if remote_url_len > 0 {
-            let mut remote_url = vec![0u8; remote_url_len];
+        let remote_url = if remote_url_len > 0 {
             cursor
-                .read_exact(&mut remote_url)
-                .with_context(|| "Failed to read remote url")?;
-            Some(String::from_utf8(remote_url).with_context(|| "Invalid UTF-8 key")?)
+                .read_string(remote_url_len as usize)
+                .with_context(|| "Failed to read remote url")
+                .ok()
         } else {
             None
         };
 
-        let mut init_date = u32::MAX.to_le_bytes();
-        cursor.read_exact(&mut init_date)?;
-        let init_date = u32::from_le_bytes(init_date);
+        let init_date = cursor
+            .read_u32()
+            .with_context(|| "Failed to read init date")?;
 
-        let mut last_commit_date = u32::MAX.to_le_bytes();
-        cursor.read_exact(&mut last_commit_date)?;
-        let last_commit_date = u32::from_le_bytes(last_commit_date);
+        let last_commit_date = cursor
+            .read_u32()
+            .with_context(|| "Failed to read last commit date")?;
 
-        // Last commit msg
-        cursor.read_exact(&mut len_bytes)?;
-        let last_commit_msg_len = u16::from_le_bytes(len_bytes) as usize;
+        let last_commit_msg_len = cursor
+            .read_u16()
+            .with_context(|| "Failed to read last commit msg len")?;
+
         let last_commit_msg = if last_commit_msg_len > 0 {
-            let mut last_commit_msg = vec![0u8; last_commit_msg_len];
             cursor
-                .read_exact(&mut last_commit_msg)
-                .with_context(|| "Failed to read last commit msg")?;
-            Some(String::from_utf8(last_commit_msg).with_context(|| "Invalid UTF-8 key")?)
+                .read_string(last_commit_msg_len as usize)
+                .with_context(|| "Failed to read last commit msg")
+                .ok()
         } else {
             None
         };
 
-        let mut commit_count = u32::MAX.to_le_bytes();
-        cursor.read_exact(&mut commit_count)?;
-        let commit_count = u32::from_le_bytes(commit_count);
+        let commit_count = cursor
+            .read_u32()
+            .with_context(|| "Failed to read commit count")?;
 
         Ok(Self {
             remote_url,
@@ -231,25 +210,13 @@ impl CacheSerializer for ProjectLanguage {
     }
 
     fn deserialize(cursor: &mut Cursor<&[u8]>) -> anyhow::Result<Self> {
-        let mut files = u32::MAX.to_le_bytes();
-        cursor.read_exact(&mut files)?;
-        let files = u32::from_le_bytes(files);
-
-        let mut lines = u32::MAX.to_le_bytes();
-        cursor.read_exact(&mut lines)?;
-        let lines = u32::from_le_bytes(lines);
-
-        let mut code = u32::MAX.to_le_bytes();
-        cursor.read_exact(&mut code)?;
-        let code = u32::from_le_bytes(code);
-
-        let mut comments = u32::MAX.to_le_bytes();
-        cursor.read_exact(&mut comments)?;
-        let comments = u32::from_le_bytes(comments);
-
-        let mut blanks = u32::MAX.to_le_bytes();
-        cursor.read_exact(&mut blanks)?;
-        let blanks = u32::from_le_bytes(blanks);
+        let files = cursor.read_u32().with_context(|| "Failed to read files")?;
+        let lines = cursor.read_u32().with_context(|| "Failed to read lines")?;
+        let code = cursor.read_u32().with_context(|| "Failed to read code")?;
+        let comments = cursor
+            .read_u32()
+            .with_context(|| "Failed to read comments")?;
+        let blanks = cursor.read_u32().with_context(|| "Failed to read blanks")?;
 
         Ok(Self {
             files,
@@ -270,10 +237,7 @@ where
 
         buffer.extend_from_slice(&u16::try_from(self.len())?.to_le_bytes());
         for (key, value) in self {
-            // Key
             buffer.extend_from_slice(&key.to_le_bytes());
-
-            // Value
             buffer.extend_from_slice(&T::serialize(value)?);
         }
 
@@ -281,27 +245,59 @@ where
     }
 
     fn deserialize(cursor: &mut Cursor<&[u8]>) -> anyhow::Result<Self> {
-        // Hashmap count
-        let mut hashmap_len = u16::MAX.to_le_bytes();
-        cursor
-            .read_exact(&mut hashmap_len)
+        let hashmap_len = cursor
+            .read_u16()
             .with_context(|| "Failed to read hashmap len")?;
-        let hashmap_len = u16::from_le_bytes(hashmap_len);
 
         let mut hashmap = HashMap::new();
 
         for _ in 0..hashmap_len {
-            // Key
-            let mut key = u8::MAX.to_le_bytes();
-            cursor.read_exact(&mut key)?;
-            let key = u8::from_le_bytes(key);
-
-            // Value
+            let key = cursor.read_u8().with_context(|| "Failed to read key")?;
             let value = T::deserialize(cursor)?;
 
             hashmap.insert(key, value);
         }
 
         Ok(hashmap)
+    }
+}
+
+pub trait CursorUtil {
+    fn read_u8(&mut self) -> anyhow::Result<u8>;
+    fn read_u16(&mut self) -> anyhow::Result<u16>;
+    fn read_u32(&mut self) -> anyhow::Result<u32>;
+    fn read_u64(&mut self) -> anyhow::Result<u64>;
+    fn read_string(&mut self, len: usize) -> anyhow::Result<String>;
+}
+
+impl CursorUtil for Cursor<&[u8]> {
+    fn read_u8(&mut self) -> anyhow::Result<u8> {
+        let mut bytes = [0u8; 1];
+        self.read_exact(&mut bytes)?;
+        Ok(u8::from_le_bytes(bytes))
+    }
+
+    fn read_u16(&mut self) -> anyhow::Result<u16> {
+        let mut bytes = [0u8; 2];
+        self.read_exact(&mut bytes)?;
+        Ok(u16::from_le_bytes(bytes))
+    }
+
+    fn read_u32(&mut self) -> anyhow::Result<u32> {
+        let mut bytes = [0u8; 4];
+        self.read_exact(&mut bytes)?;
+        Ok(u32::from_le_bytes(bytes))
+    }
+
+    fn read_u64(&mut self) -> anyhow::Result<u64> {
+        let mut bytes = [0u8; 8];
+        self.read_exact(&mut bytes)?;
+        Ok(u64::from_le_bytes(bytes))
+    }
+
+    fn read_string(&mut self, len: usize) -> anyhow::Result<String> {
+        let mut bytes = vec![0u8; len];
+        self.read_exact(&mut bytes)?;
+        Ok(String::from_utf8(bytes).with_context(|| "Invalid UTF-8 key")?)
     }
 }
