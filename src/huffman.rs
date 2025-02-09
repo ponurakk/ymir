@@ -12,7 +12,7 @@ pub struct MinHeapNode {
 }
 
 impl MinHeapNode {
-    pub fn new(data: Option<u8>, freq: u32) -> Self {
+    pub const fn new(data: Option<u8>, freq: u32) -> Self {
         Self {
             data,
             freq,
@@ -66,19 +66,16 @@ pub fn lookup_table(
     }
 }
 
-fn huffman_table(data: Vec<u8>, freq: &[u32]) -> BinaryHeap<MinHeapNode> {
+fn huffman_table(data: &[u8], freq: &[u32]) -> Option<BinaryHeap<MinHeapNode>> {
     let mut min_heap = BinaryHeap::new();
 
     for i in 0..data.len() {
-        min_heap.push(MinHeapNode::new(
-            data.get(i).cloned(),
-            *freq.get(i).unwrap(),
-        ));
+        min_heap.push(MinHeapNode::new(data.get(i).copied(), *freq.get(i)?));
     }
 
     while min_heap.len() != 1 {
-        let left = min_heap.pop().unwrap();
-        let right = min_heap.pop().unwrap();
+        let left = min_heap.pop()?;
+        let right = min_heap.pop()?;
 
         let mut top = MinHeapNode::new(None, left.freq + right.freq);
 
@@ -88,7 +85,7 @@ fn huffman_table(data: Vec<u8>, freq: &[u32]) -> BinaryHeap<MinHeapNode> {
         min_heap.push(top);
     }
 
-    min_heap
+    Some(min_heap)
 }
 
 pub fn get_frequencies(data: &[u8]) -> (Vec<u8>, Vec<u32>) {
@@ -108,15 +105,17 @@ pub fn get_frequencies(data: &[u8]) -> (Vec<u8>, Vec<u32>) {
 }
 
 pub fn huffman_encode(buffer: &[u8]) -> Vec<u8> {
-    let (arr, freq) = get_frequencies(&buffer);
-    let mut heap = huffman_table(arr, &freq);
+    let (arr, freq) = get_frequencies(buffer);
+    let mut heap = huffman_table(&arr, &freq).unwrap_or_default();
     let mut table = HashMap::new();
-    lookup_table(heap.pop().map(|v| Box::new(v)), Vec::new(), &mut table);
+    lookup_table(heap.pop().map(Box::new), Vec::new(), &mut table);
 
     let mut table_bytes = Vec::new();
     for (char, code) in &table {
-        table_bytes.push(*char as u8);
-        table_bytes.push(code.len() as u8);
+        table_bytes.push(*char);
+
+        // There is very very low probability that this will fail unwraping
+        table_bytes.push(u8::try_from(code.len()).unwrap_or_default());
 
         let mut packed_code: u16 = 0;
         for (i, bit) in code.iter().enumerate() {
@@ -129,8 +128,9 @@ pub fn huffman_encode(buffer: &[u8]) -> Vec<u8> {
 
     let mut bit_stream: Vec<u8> = Vec::new();
     for char in buffer {
-        let code = table.get(&char).unwrap();
-        bit_stream.extend(code);
+        if let Some(code) = table.get(char) {
+            bit_stream.extend(code);
+        }
     }
 
     let mut buffer: Vec<u8> = Vec::new();
@@ -154,7 +154,11 @@ pub fn huffman_encode(buffer: &[u8]) -> Vec<u8> {
     }
 
     let mut new_buffer: Vec<u8> = Vec::new();
-    new_buffer.extend_from_slice(&(table_bytes.len() as u16).to_le_bytes());
+    new_buffer.extend_from_slice(
+        &u16::try_from(table_bytes.len())
+            .unwrap_or_default()
+            .to_le_bytes(),
+    );
     new_buffer.extend_from_slice(&table_bytes);
     new_buffer.extend_from_slice(&buffer);
 
@@ -170,7 +174,7 @@ pub fn huffman_decode(buffer: &[u8]) -> anyhow::Result<Vec<u8>> {
 
     let mut table = HashMap::new();
 
-    while (cursor.position() as usize) < table_size + table_size_len.len() {
+    while usize::try_from(cursor.position())? < table_size + table_size_len.len() {
         let mut char_byte = [0u8; 1];
         cursor.read_exact(&mut char_byte)?;
         let char_byte = char_byte[0];
@@ -196,9 +200,10 @@ pub fn huffman_decode(buffer: &[u8]) -> anyhow::Result<Vec<u8>> {
     let mut bit_stream = Vec::new();
 
     let remaining_data = cursor.get_ref();
-    for &byte in &remaining_data[cursor.position() as usize..] {
+    for &byte in &remaining_data[usize::try_from(cursor.position())?..] {
         for i in (0..8).rev() {
-            bit_stream.push(if (byte >> i) & 1 == 1 { 1 } else { 0 });
+            // bit_stream.push(if (byte >> i) & 1 == 1 { 1 } else { 0 });
+            bit_stream.push(u8::from((byte >> i) & 1 == 1));
         }
     }
 

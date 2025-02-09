@@ -60,7 +60,8 @@ impl CacheSerializer for Cache {
         }
 
         // Huffman decoding
-        let buffer = huffman_decode(&cursor.clone().into_inner()[cursor.position() as usize..])?;
+        let buffer =
+            huffman_decode(&cursor.clone().into_inner()[usize::try_from(cursor.position())?..])?;
         let mut cursor = std::io::Cursor::new(buffer.as_slice());
 
         let projects_len = cursor
@@ -83,7 +84,7 @@ impl CacheSerializer for Project {
 
         let path = self.path.to_string_lossy();
         buffer.extend_from_slice(&u16::try_from(path.len())?.to_le_bytes());
-        buffer.extend_from_slice(&path.to_string().as_bytes());
+        buffer.extend_from_slice(path.to_string().as_bytes());
 
         buffer.extend_from_slice(&self.size.to_le_bytes());
 
@@ -249,7 +250,7 @@ where
             .read_u16()
             .with_context(|| "Failed to read hashmap len")?;
 
-        let mut hashmap = HashMap::new();
+        let mut hashmap = Self::new();
 
         for _ in 0..hashmap_len {
             let key = cursor.read_u8().with_context(|| "Failed to read key")?;
@@ -298,6 +299,6 @@ impl CursorUtil for Cursor<&[u8]> {
     fn read_string(&mut self, len: usize) -> anyhow::Result<String> {
         let mut bytes = vec![0u8; len];
         self.read_exact(&mut bytes)?;
-        Ok(String::from_utf8(bytes).with_context(|| "Invalid UTF-8 key")?)
+        String::from_utf8(bytes).with_context(|| "Invalid UTF-8 key")
     }
 }

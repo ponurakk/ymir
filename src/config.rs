@@ -75,7 +75,7 @@ impl Settings {
         );
 
         if let Ok(file) = fs::read_to_string(&config_path) {
-            return toml::from_str(&file).unwrap_or(Self::default());
+            return toml::from_str(&file).unwrap_or_default();
         }
 
         Self::default()
@@ -135,10 +135,10 @@ impl Cache {
 
         if let Ok(file) = fs::read(&cache_path) {
             let mut cursor = std::io::Cursor::new(file.as_slice());
-            let cache: Cache = match CacheSerializer::deserialize(&mut cursor) {
+            let cache: Self = match CacheSerializer::deserialize(&mut cursor) {
                 Ok(cache) => cache,
                 Err(e) => {
-                    eprintln!("{:#?}", e);
+                    eprintln!("{e:#?}");
                     return Vec::new();
                 }
             };
@@ -156,7 +156,7 @@ impl Cache {
 
         let config_path = format!("{app_dir}/cache");
 
-        let cache = Cache {
+        let cache = Self {
             projects: projects.to_vec(),
         };
 

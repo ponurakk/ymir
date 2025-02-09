@@ -22,6 +22,7 @@ use crate::{
     sorting::{Filter, Sorting},
 };
 
+#[allow(clippy::struct_excessive_bools)]
 pub struct App {
     should_exit: bool,
     show_project_info: bool,
@@ -130,22 +131,26 @@ impl App {
                 self.search_index = 0;
             }
             KeyCode::Char(c) => {
-                self.search_text.as_mut().map(|v| v.push(c));
+                if let Some(v) = self.search_text.as_mut() {
+                    v.push(c);
+                }
                 self.search_count = self.projects_list.search(
-                    &self.search_text.clone().unwrap_or("".to_string()),
+                    &self.search_text.clone().unwrap_or_default(),
                     self.search_index,
                 );
             }
             KeyCode::Backspace => {
-                self.search_text.as_mut().map(|v| v.pop());
+                if let Some(v) = self.search_text.as_mut() {
+                    v.pop();
+                }
                 self.search_count = self.projects_list.search(
-                    &self.search_text.clone().unwrap_or("".to_string()),
+                    &self.search_text.clone().unwrap_or_default(),
                     self.search_index,
                 );
             }
             KeyCode::Enter => {
                 self.search_count = self.projects_list.search(
-                    &self.search_text.clone().unwrap_or("".to_string()),
+                    &self.search_text.clone().unwrap_or_default(),
                     self.search_index,
                 );
 
@@ -261,6 +266,12 @@ impl App {
             Span::styled(" > ", Style::default().fg(CYAN.c500)),
         ];
 
+        let filter_title = vec![
+            Span::styled(" < ", Style::default().fg(CYAN.c500)),
+            Span::from(self.filter_type.to_string()),
+            Span::styled(" > ", Style::default().fg(CYAN.c500)),
+        ];
+
         let mut invert_title = Line::from(vec![
             Span::styled(" i", Style::default().fg(CYAN.c500)),
             Span::from("nvert "),
@@ -276,6 +287,7 @@ impl App {
                 Line::raw(format!("Projects ({})", self.projects_list.items.len())).left_aligned(),
             )
             .title(invert_title)
+            .title(Line::from(filter_title).right_aligned())
             .title(Line::from(sort_title).right_aligned())
             .borders(Borders::ALL)
             .border_set(symbols::border::ROUNDED);
@@ -295,7 +307,7 @@ impl App {
         StatefulWidget::render(list, area, buf, &mut self.projects_list.state);
     }
 
-    fn render_search(&mut self, area: Rect, buf: &mut Buffer) {
+    fn render_search(&self, area: Rect, buf: &mut Buffer) {
         let block = Block::new()
             .title(
                 Line::from(format!("[{}/{}]", self.search_index + 1, self.search_count))
@@ -315,8 +327,14 @@ impl App {
             |i| self.projects_list.items[i].to_string(),
         );
 
+        let title = vec![
+            Span::from("["),
+            Span::styled("1", Style::default().fg(CYAN.c500)),
+            Span::from("] Project Info"),
+        ];
+
         let block = Block::new()
-            .title(Line::raw("[1] Project Info").left_aligned())
+            .title(Line::from(title).left_aligned())
             .borders(Borders::ALL)
             .border_set(symbols::border::ROUNDED)
             .padding(Padding::horizontal(1));
@@ -353,7 +371,7 @@ impl App {
                         Row::new(vec![
                             LanguageType::list()
                                 .get(*ltype as usize)
-                                .map_or("Error".to_string(), |v| v.to_string()),
+                                .map_or("Error".to_string(), ToString::to_string),
                             l.files.to_string(),
                             l.lines.to_string(),
                             l.code.to_string(),
@@ -383,8 +401,14 @@ impl App {
         .collect::<Row>()
         .height(1);
 
+        let title = vec![
+            Span::from("["),
+            Span::styled("2", Style::default().fg(CYAN.c500)),
+            Span::from("] Languages"),
+        ];
+
         let block = Block::new()
-            .title(Line::raw("[2] Languages").left_aligned())
+            .title(Line::from(title).left_aligned())
             .borders(Borders::ALL)
             .border_set(symbols::border::ROUNDED)
             .padding(Padding::horizontal(1));

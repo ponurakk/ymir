@@ -43,25 +43,13 @@ where
     Ok(size_in_bytes)
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct GitInfo {
     pub remote_url: Option<String>,
     pub init_date: u32,
     pub last_commit_date: u32,
     pub last_commit_msg: Option<String>,
     pub commit_count: u32,
-}
-
-impl Default for GitInfo {
-    fn default() -> Self {
-        Self {
-            remote_url: None,
-            init_date: 0,
-            last_commit_date: 0,
-            last_commit_msg: None,
-            commit_count: 0,
-        }
-    }
 }
 
 pub fn get_git_info(repo_path: &Path) -> anyhow::Result<GitInfo> {
@@ -118,6 +106,7 @@ pub fn get_git_info(repo_path: &Path) -> anyhow::Result<GitInfo> {
 fn format_time(timestamp: Option<i64>) -> u32 {
     timestamp
         .and_then(|t| DateTime::from_timestamp(t, 0))
-        .map(|dt| dt.with_timezone(&Local).timestamp() as u32)
-        .unwrap_or(0)
+        .map_or(0, |dt| {
+            u32::try_from(dt.with_timezone(&Local).timestamp()).unwrap_or_default()
+        })
 }

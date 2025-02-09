@@ -32,16 +32,18 @@ pub struct ProjectLanguage {
 impl Display for Project {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let init_date = Local
-            .timestamp_opt(self.git_info.init_date as i64, 0)
+            .timestamp_opt(i64::from(self.git_info.init_date), 0)
             .single()
-            .map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string())
-            .unwrap_or("Invalid date".to_string());
+            .map_or("Invalid date".to_string(), |dt| {
+                dt.format("%Y-%m-%d %H:%M:%S").to_string()
+            });
 
         let last_commit_date = Local
-            .timestamp_opt(self.git_info.last_commit_date as i64, 0)
+            .timestamp_opt(i64::from(self.git_info.last_commit_date), 0)
             .single()
-            .map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string())
-            .unwrap_or("Invalid date".to_string());
+            .map_or("Invalid date".to_string(), |dt| {
+                dt.format("%Y-%m-%d %H:%M:%S").to_string()
+            });
 
         write!(
             f,
