@@ -31,6 +31,7 @@ pub struct App {
     sort_type: Sorting,
     filter_type: Filter,
     invert: bool,
+    git_name: String,
 
     // Search
     search_text: Option<String>,
@@ -53,6 +54,9 @@ impl App {
             filter_type: Filter::All,
             projects_list: ProjectsList::from_iter(projects_list),
             invert: false,
+            git_name: git2::Config::open_default().map_or("".to_string(), |v| {
+                v.get_string("user.name").unwrap_or_default()
+            }),
             search_text: None,
             search_index: 0,
             search_count: 0,
@@ -112,8 +116,19 @@ impl App {
                 if self.search_text.is_some() {
                     self.search_text = None;
                 } else {
-                    self.search_text = Some("".to_owned());
+                    self.search_text = Some(String::new());
                 }
+            }
+
+            KeyCode::Char('y') => {
+                self.filter_type = self.filter_type.previous();
+                self.projects_list
+                    .filter_projects(&self.filter_type, &self.git_name);
+            }
+            KeyCode::Char('o') => {
+                self.filter_type = self.filter_type.next();
+                self.projects_list
+                    .filter_projects(&self.filter_type, &self.git_name);
             }
 
             _ => {}
@@ -261,15 +276,15 @@ impl App {
 
     fn render_list(&mut self, area: Rect, buf: &mut Buffer) {
         let sort_title = vec![
-            Span::styled(" < ", Style::default().fg(CYAN.c500)),
+            Span::styled(" <h ", Style::default().fg(CYAN.c500)),
             Span::from(self.sort_type.to_string()),
-            Span::styled(" > ", Style::default().fg(CYAN.c500)),
+            Span::styled(" l> ", Style::default().fg(CYAN.c500)),
         ];
 
         let filter_title = vec![
-            Span::styled(" < ", Style::default().fg(CYAN.c500)),
+            Span::styled(" <y ", Style::default().fg(CYAN.c500)),
             Span::from(self.filter_type.to_string()),
-            Span::styled(" > ", Style::default().fg(CYAN.c500)),
+            Span::styled(" o> ", Style::default().fg(CYAN.c500)),
         ];
 
         let mut invert_title = Line::from(vec![
@@ -434,8 +449,18 @@ impl App {
     }
 }
 
+pub fn get_remote_username(project: &Project) -> String {
+    project
+        .git_info
+        .remote_url
+        .as_ref()
+        .map_or("", |v| v.split('/').nth(3).unwrap_or_default())
+        .to_string()
+}
+
 struct ProjectsList {
     items: Vec<Project>,
+    items_state: Vec<Project>,
     state: ListState,
 }
 
@@ -473,10 +498,37 @@ impl ProjectsList {
         }
 
         self.items = items;
-        if !self.items.is_empty() {
-            self.state.select(Some(0));
-        } else {
+        self.state.select(Some(0));
+    }
+
+    fn filter_projects(&mut self, filter_type: &Filter, username: &str) {
+        let items = self.items_state.clone();
+
+        let items = match filter_type {
+            Filter::All => items,
+            Filter::Owned => items
+                .into_iter()
+                .filter(|v| get_remote_username(v) == username)
+                .collect(),
+            Filter::NotOwned => items
+                .into_iter()
+                .filter(|v| get_remote_username(v) != username)
+                .collect(),
+            Filter::HasRemote => items
+                .into_iter()
+                .filter(|v| v.git_info.remote_url.is_some())
+                .collect(),
+            Filter::NoRemote => items
+                .into_iter()
+                .filter(|v| v.git_info.remote_url.is_none())
+                .collect(),
+        };
+
+        self.items = items;
+        if self.items.is_empty() {
             self.state.select(None);
+        } else {
+            self.state.select(Some(0));
         }
     }
 
@@ -502,8 +554,10 @@ impl ProjectsList {
 impl FromIterator<Project> for ProjectsList {
     fn from_iter<I: IntoIterator<Item = Project>>(iter: I) -> Self {
         let state = ListState::default();
+        let items: Vec<Project> = iter.into_iter().collect();
         Self {
-            items: iter.into_iter().collect(),
+            items: items.clone(),
+            items_state: items,
             state,
         }
     }
