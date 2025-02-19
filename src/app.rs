@@ -54,7 +54,7 @@ impl App {
             filter_type: Filter::All,
             projects_list: ProjectsList::from_iter(projects_list),
             invert: false,
-            git_name: git2::Config::open_default().map_or("".to_string(), |v| {
+            git_name: git2::Config::open_default().map_or(String::new(), |v| {
                 v.get_string("user.name").unwrap_or_default()
             }),
             search_text: None,

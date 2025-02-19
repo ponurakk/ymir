@@ -39,8 +39,8 @@ fn pre_config() -> anyhow::Result<String> {
 
 impl Settings {
     /// Default ignore directories
-    pub fn ignore_dirs<'a>() -> Vec<&'a str> {
-        vec![
+    pub const fn ignore_dirs<'a>() -> [&'a str; 16] {
+        [
             // Build
             "node_modules",
             "target",

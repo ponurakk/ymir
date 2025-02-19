@@ -12,32 +12,18 @@ mod projects;
 mod sorting;
 mod utils;
 
-use std::{fs::File, path::PathBuf};
+use std::{env, fs::File, path::PathBuf};
 
 use anyhow::bail;
 use app::App;
-use clap::Parser;
 use config::{Cache, Settings};
+use getopts::Options;
 use log::LevelFilter;
 use simplelog::ConfigBuilder;
 
-/// Arguments for cli
-#[derive(Parser, Debug)]
-struct Args {
-    /// Path from where to search
-    path: Option<PathBuf>,
-
-    /// Saves config in config directory
-    #[arg(long)]
-    gen_config: bool,
-
-    /// Don't create cache file
-    #[arg(long)]
-    no_cache: bool,
-
-    /// Update of cache
-    #[arg(long)]
-    fresh: bool,
+fn print_usage(opts: &Options) {
+    let brief = format!("Usage: {} [PATH] [OPTIONS]", env!("CARGO_PKG_NAME"));
+    print!("{}", opts.usage(&brief));
 }
 
 fn main() -> anyhow::Result<()> {
@@ -49,29 +35,51 @@ fn main() -> anyhow::Result<()> {
         .join(env!("CARGO_PKG_NAME"))
         .join(format!("{}.log", env!("CARGO_PKG_NAME")));
 
+    let Ok(log_file) = File::create(log_path) else {
+        bail!("Failed to create log file");
+    };
+
     simplelog::WriteLogger::init(
         LevelFilter::Info,
         ConfigBuilder::new().add_filter_ignore_str("tokei").build(),
-        File::create(log_path).unwrap(),
+        log_file,
     )?;
 
-    let args = Args::parse();
+    let args: Vec<String> = env::args().collect();
 
-    if args.gen_config {
+    let mut opts = Options::new();
+    opts.optflag("", "gen-config", "Saves config in config directory");
+    opts.optflag("", "no-cache", "Don't create cache file");
+    opts.optflag("f", "fresh", "Recreate cache file from scratch");
+    opts.optflag("h", "help", "Print help");
+
+    let matches = match opts.parse(&args[1..]) {
+        Ok(m) => m,
+        Err(f) => bail!("{}", f),
+    };
+
+    if matches.opt_present("h") {
+        print_usage(&opts);
+        return Ok(());
+    }
+
+    if matches.opt_present("gen-config") {
         Settings::write_config()?;
         return Ok(());
     }
 
+    let path = matches.free.first().map(PathBuf::from);
     let settings = Settings::new();
-    let Some(find_dir) = args.path.or(settings.default_dir) else {
+
+    let Some(find_dir) = path.or(settings.default_dir) else {
         bail!("You must specify the directory");
     };
 
-    let projects = if args.no_cache {
+    let projects = if matches.opt_present("no-cache") {
         eprintln!("Loading fresh data");
         debug!("Loading fresh data");
         projects::find(&find_dir, &settings.ignore_dirs)
-    } else if args.fresh {
+    } else if matches.opt_present("fresh") {
         eprintln!("Refreshing cache");
         debug!("Refreshing cache");
         Cache::create_cache(&projects::find(&find_dir, &settings.ignore_dirs))
