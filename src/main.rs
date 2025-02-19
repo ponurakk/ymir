@@ -1,6 +1,9 @@
 //! Ymir is a tool for finding projects
 #![warn(missing_docs)]
 
+#[macro_use]
+extern crate log;
+
 mod app;
 mod cache;
 mod config;
@@ -9,12 +12,14 @@ mod projects;
 mod sorting;
 mod utils;
 
-use std::path::PathBuf;
+use std::{fs::File, path::PathBuf};
 
 use anyhow::bail;
 use app::App;
 use clap::Parser;
 use config::{Cache, Settings};
+use log::LevelFilter;
+use simplelog::ConfigBuilder;
 
 /// Arguments for cli
 #[derive(Parser, Debug)]
@@ -36,6 +41,20 @@ struct Args {
 }
 
 fn main() -> anyhow::Result<()> {
+    let Some(config_dir) = dirs::config_dir() else {
+        bail!("Failed to find config_directory")
+    };
+
+    let log_path = config_dir
+        .join(env!("CARGO_PKG_NAME"))
+        .join(format!("{}.log", env!("CARGO_PKG_NAME")));
+
+    simplelog::WriteLogger::init(
+        LevelFilter::Info,
+        ConfigBuilder::new().add_filter_ignore_str("tokei").build(),
+        File::create(log_path).unwrap(),
+    )?;
+
     let args = Args::parse();
 
     if args.gen_config {
@@ -49,16 +68,23 @@ fn main() -> anyhow::Result<()> {
     };
 
     let projects = if args.no_cache {
-        eprintln!("No cache");
+        eprintln!("Loading fresh data");
+        debug!("Loading fresh data");
         projects::find(&find_dir, &settings.ignore_dirs)
     } else if args.fresh {
-        eprintln!("Fresh");
-        Cache::create_cache(&projects::find(&find_dir, &settings.ignore_dirs))?.projects
+        eprintln!("Refreshing cache");
+        debug!("Refreshing cache");
+        Cache::create_cache(&projects::find(&find_dir, &settings.ignore_dirs))
+            .unwrap_or_default()
+            .projects
     } else {
-        eprintln!("From Cache");
+        eprintln!("Loading data from cache");
+        debug!("Loading data from cache");
         let cache = Cache::read_cache();
         if cache.is_empty() {
-            Cache::create_cache(&projects::find(&find_dir, &settings.ignore_dirs))?.projects
+            Cache::create_cache(&projects::find(&find_dir, &settings.ignore_dirs))
+                .unwrap_or_default()
+                .projects
         } else {
             cache
         }

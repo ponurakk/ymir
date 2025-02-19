@@ -3,6 +3,7 @@
 use std::{collections::HashMap, ffi::OsStr, fmt::Display, path::PathBuf};
 
 use chrono::{Local, TimeZone};
+use log::{error, info};
 use tokei::{Config, Languages};
 use walkdir::{DirEntry, WalkDir};
 
@@ -105,8 +106,7 @@ pub fn find(path: &PathBuf, ignore_dirs: &[String]) -> Vec<Project> {
         }
 
         let Some(parent) = entry.path().parent() else {
-            // TODO: Add error log
-            eprintln!("Failed to get parent of directory");
+            error!("Failed to get parent of directory");
             continue;
         };
 
@@ -140,7 +140,9 @@ pub fn find(path: &PathBuf, ignore_dirs: &[String]) -> Vec<Project> {
 
         let size = get_size(parent).unwrap_or(0);
         paths.push(Project::new(parent.to_path_buf(), size, languages, total));
-        eprintln!("{} - {}", paths.len(), parent.display());
+        let paths_len = paths.len();
+        let parent_display = parent.display();
+        info!("{paths_len} - {parent_display}");
     }
 
     paths

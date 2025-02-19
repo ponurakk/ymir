@@ -41,7 +41,7 @@ pub struct App {
 
 const SELECTED_STYLE: Style = Style::new().bg(NEUTRAL.c900).add_modifier(Modifier::BOLD);
 const INACTIVE_COLOR: Color = RED.c700;
-const TEXT_FG_COLOR: Color = SLATE.c200;
+pub const TEXT_FG_COLOR: Color = SLATE.c200;
 
 impl App {
     /// Create a new app with the given list of projects
@@ -112,14 +112,8 @@ impl App {
                 self.projects_list
                     .sort_projects(&self.sort_type, self.invert);
             }
-            KeyCode::Char('/') => {
-                if self.search_text.is_some() {
-                    self.search_text = None;
-                } else {
-                    self.search_text = Some(String::new());
-                }
-            }
 
+            // Filtering
             KeyCode::Char('y') => {
                 self.filter_type = self.filter_type.previous();
                 self.projects_list
@@ -129,6 +123,15 @@ impl App {
                 self.filter_type = self.filter_type.next();
                 self.projects_list
                     .filter_projects(&self.filter_type, &self.git_name);
+            }
+
+            // Searching
+            KeyCode::Char('/') => {
+                if self.search_text.is_some() {
+                    self.search_text = None;
+                } else {
+                    self.search_text = Some(String::new());
+                }
             }
 
             _ => {}
@@ -261,14 +264,14 @@ impl Widget for &mut App {
 }
 
 impl App {
-    fn render_header(area: Rect, buf: &mut Buffer) {
+    pub fn render_header(area: Rect, buf: &mut Buffer) {
         Paragraph::new("Ymir project finder")
             .bold()
             .centered()
             .render(area, buf);
     }
 
-    fn render_footer(area: Rect, buf: &mut Buffer) {
+    pub fn render_footer(area: Rect, buf: &mut Buffer) {
         Paragraph::new("Use ↓↑ to move, ← to unselect, g/G to go top/bottom.")
             .centered()
             .render(area, buf);

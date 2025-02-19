@@ -8,7 +8,9 @@ use std::{
 use anyhow::bail;
 use serde::Deserialize;
 
-use crate::{cache::CacheSerializer, projects::Project};
+use crate::cache::CacheSerializer;
+use crate::projects::Project;
+use log::error;
 
 /// Settings for ymir
 #[derive(Debug, Deserialize)]
@@ -19,7 +21,7 @@ pub struct Settings {
 
 fn pre_config() -> anyhow::Result<String> {
     let Some(config_dir) = dirs::config_dir() else {
-        eprintln!("Failed to find config_directory");
+        error!("Failed to find config_directory");
         bail!("Failed to find config_directory")
     };
 
@@ -27,7 +29,7 @@ fn pre_config() -> anyhow::Result<String> {
 
     if !Path::new(&app_dir).exists() {
         if let Err(err) = fs::create_dir_all(&app_dir) {
-            eprintln!("Failed to create config directory: {err}");
+            error!("Failed to create config directory: {err}");
             bail!("Failed to create config directory")
         }
     }
@@ -63,8 +65,7 @@ impl Settings {
     /// Load config
     pub fn new() -> Self {
         let Some(config_dir) = dirs::config_dir() else {
-            // TODO: Add notification
-            eprintln!("Failed to find config_directory");
+            error!("Failed to find config_directory");
             return Self::default();
         };
 
@@ -96,9 +97,9 @@ impl Settings {
 
         if !Path::new(&config_path).exists() {
             if let Err(err) = fs::write(&config_path, serialized) {
-                eprintln!("Failed to write config: {err}");
+                error!("Failed to write config: {err}");
             } else {
-                eprintln!("Default config saved to {config_path}");
+                info!("Default config saved to {config_path}");
             }
         }
 
@@ -126,8 +127,7 @@ pub struct Cache {
 impl Cache {
     pub fn read_cache() -> Vec<Project> {
         let Some(config_dir) = dirs::config_dir() else {
-            // TODO: Add notification
-            eprintln!("Failed to find config_directory");
+            error!("Failed to find config_directory");
             return Vec::new();
         };
 
@@ -145,7 +145,7 @@ impl Cache {
             return cache.projects;
         }
 
-        eprintln!("Failed to find file");
+        error!("Failed to find file");
         Vec::new()
     }
 
@@ -166,9 +166,9 @@ impl Cache {
 
         if !Path::new(&config_path).exists() {
             if let Err(err) = fs::write(&config_path, serialized) {
-                eprintln!("Failed to write config: {err}");
+                error!("Failed to write config: {err}");
             } else {
-                eprintln!("Default config saved to {config_path}");
+                info!("Default config saved to {config_path}");
             }
         }
 
