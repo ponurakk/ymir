@@ -22,3 +22,11 @@ simplelog = "0.12.2"
 tokei = "12.1.2"
 toml = "0.8.19"
 walkdir = "2.5.0"
+
+[profile.dev]
+debug = 0
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"

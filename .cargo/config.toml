@@ -1,2 +1,3 @@
 [build]
 rustdocflags = ["--default-theme=ayu"]
+rustflags = ["-Ctarget-cpu=native", "-Clink-arg=-fuse-ld=lld"]
